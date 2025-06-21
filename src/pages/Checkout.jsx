@@ -84,7 +84,7 @@ const Checkout = () => {
     setLoading(true);
     try {
       // Fetch cart items
-      const cartResponse = await fetch('http://localhost:5001/api/products/cart/me', {
+      const cartResponse = await fetch('https://coms-again.onrender.com/api/products/cart/me', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -98,7 +98,7 @@ const Checkout = () => {
 
       // Fetch user profile to get addresses
       try {
-        const userResponse = await fetch('http://localhost:5001/api/auth/me', {
+        const userResponse = await fetch('https://coms-again.onrender.com/api/auth/me', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -155,7 +155,7 @@ const Checkout = () => {
     
     setCouponLoading(true);
     try {
-      const response = await fetch('http://localhost:5001/api/coupons/validate', {
+      const response = await fetch('https://coms-again.onrender.com/api/coupons/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +199,7 @@ const Checkout = () => {
     if (newQty < 1) return;
     
     try {
-      const response = await fetch('http://localhost:5001/api/products/cart/update', {
+      const response = await fetch('https://coms-again.onrender.com/api/products/cart/update', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -226,7 +226,7 @@ const Checkout = () => {
 
   const removeFromCart = async (itemId) => {
     try {
-      const response = await fetch('http://localhost:5001/api/products/cart/remove', {
+      const response = await fetch('https://coms-again.onrender.com/api/products/cart/remove', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +249,7 @@ const Checkout = () => {
   const addAddress = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5001/api/auth/address/add', {
+      const response = await fetch('https://coms-again.onrender.com/api/auth/address/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -360,7 +360,7 @@ const Checkout = () => {
 
       console.log('Order Data:', orderData); // Debug log
 
-      const response = await fetch('http://localhost:5001/api/products/orders', {
+      const response = await fetch('https://coms-again.onrender.com/api/products/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -380,7 +380,7 @@ const Checkout = () => {
         });          // Clear cart after successful order
         console.log('Order placed successfully, attempting to clear cart...');
         try {
-          const clearCartResponse = await fetch('http://localhost:5001/api/products/cart/clear', {
+          const clearCartResponse = await fetch('https://coms-again.onrender.com/api/products/cart/clear', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,

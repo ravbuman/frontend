@@ -74,8 +74,8 @@ const ProductList = () => {
       if (!token) return;
 
       const [wishlistData, cartData] = await Promise.all([
-        apiCall('http://localhost:5001/api/products/wishlist/me'),
-        apiCall('http://localhost:5001/api/products/cart/me')
+        apiCall('https://coms-again.onrender.com/api/products/wishlist/me'),
+        apiCall('https://coms-again.onrender.com/api/products/cart/me')
       ]);      setWishlist(wishlistData.wishlist || []);
       setWishlistItems(wishlistData.wishlist || []);
       setCart(cartData.cart || []);
@@ -91,7 +91,7 @@ const ProductList = () => {
     setIsAuthenticated(!!token);
     
     setLoading(true);
-    let url = 'http://localhost:5001/api/products';
+    let url = 'https://coms-again.onrender.com/api/products';
     if (categoryParam) url += `?category=${encodeURIComponent(categoryParam)}`;
 
     setTimeout(() => {
@@ -178,14 +178,14 @@ const ProductList = () => {
     setLoadingState(productId, 'wishlist', true);
     try {
       if (isInWishlist) {
-        await apiCall('http://localhost:5001/api/products/wishlist/remove', {
+        await apiCall('https://coms-again.onrender.com/api/products/wishlist/remove', {
           method: 'POST',
           body: JSON.stringify({ productId })
         });
         setWishlist(prev => prev.filter(id => id !== productId));
         showNotification('Removed from wishlist');
       } else {
-        await apiCall('http://localhost:5001/api/products/wishlist/add', {
+        await apiCall('https://coms-again.onrender.com/api/products/wishlist/add', {
           method: 'POST',
           body: JSON.stringify({ productId })
         });
@@ -202,7 +202,7 @@ const ProductList = () => {
   const handleAddToCart = async (productId, quantity = 1) => {
     setLoadingState(productId, 'cart', true);
     try {
-      await apiCall('http://localhost:5001/api/products/cart/add', {
+      await apiCall('https://coms-again.onrender.com/api/products/cart/add', {
         method: 'POST',
         body: JSON.stringify({ productId, quantity })
       });
