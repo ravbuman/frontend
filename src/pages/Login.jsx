@@ -165,7 +165,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 bg-[#2ecc71] flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3  flex items-center text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
@@ -195,7 +195,7 @@ const Login = () => {
               className={`w-full py-3  px-4 rounded-lg text-green font-medium transition-all duration-200 ${
                 isLoading 
                   ? 'bg-primary/70 cursor-not-allowed' 
-                  : 'bg-primary hover:bg-primary-dark'
+                  : 'bg-primary bg-[#2ecc71] hover:bg-[#2ecc83]'
               }`}
             >
               {isLoading ? (
