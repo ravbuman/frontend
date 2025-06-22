@@ -165,7 +165,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 bg-[#2ecc71] flex items-center text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
@@ -192,7 +192,7 @@ const Login = () => {
               whileTap={{ scale: 0.99 }}
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-all duration-200 ${
+              className={`w-full py-3  px-4 rounded-lg text-green font-medium transition-all duration-200 ${
                 isLoading 
                   ? 'bg-primary/70 cursor-not-allowed' 
                   : 'bg-primary hover:bg-primary-dark'
@@ -200,8 +200,8 @@ const Login = () => {
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
-                  <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
-                    <circle 
+                  <svg className="animate-spin h-5 w-5 mr-3 text-greeb" viewBox="0 0 24 24">
+                    <circle
                       className="opacity-25" 
                       cx="12" 
                       cy="12" 
