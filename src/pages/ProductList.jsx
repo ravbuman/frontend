@@ -14,10 +14,12 @@ import {
   FiStar,
   FiCheck,
   FiPlus,
-  FiMinus
+  FiMinus,
+  FiChevronDown
 } from 'react-icons/fi';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
+import VariantPopup from '../components/VariantPopup';
 
 const ProductList = () => {
  const [products, setProducts] = useState([]);
@@ -30,21 +32,39 @@ const ProductList = () => {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [ratingFilter, setRatingFilter] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
-  const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState('name');
-  const [wishlist, setWishlist] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);  const [sortBy, setSortBy] = useState('name');
   const [cart, setCart] = useState([]);
-  const [loadingStates, setLoadingStates] = useState({});  const [wishlistItems, setWishlistItems] = useState([]);
+  const [loadingStates, setLoadingStates] = useState({});
+  const [selectedVariants, setSelectedVariants] = useState({}); // Track selected variant per product
+  const [showVariantPopup, setShowVariantPopup] = useState(false);
+  const [popupProduct, setPopupProduct] = useState(null);
+  const [popupAction, setPopupAction] = useState('cart'); // 'cart' or 'buy'
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   const params = new URLSearchParams(location.search);
   const categoryParam = params.get('category');
-
   // Authentication token (you'll need to get this from your auth context/storage)
   const getAuthToken = () => localStorage.getItem('token');
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showSortDropdown) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSortDropdown]);
 
   const showNotification = (message, type = 'success') => {
     const id = Date.now();
@@ -74,24 +94,64 @@ const ProductList = () => {
       if (!token) return;
 
       const [wishlistData, cartData] = await Promise.all([
-        apiCall('https://coms-again.onrender.com/api/products/wishlist/me'),
-        apiCall('https://coms-again.onrender.com/api/products/cart/me')
-      ]);      setWishlist(wishlistData.wishlist || []);
+        apiCall('http://localhost:5001/api/products/wishlist/me'),
+        apiCall('http://localhost:5001/api/products/cart/me')      ]);
+
       setWishlistItems(wishlistData.wishlist || []);
       setCart(cartData.cart || []);
     } catch (error) {
       console.log('Not authenticated or error fetching user data');
-    }
-  }, []);
+    }  }, []);
 
-  const isInWishlist = (productId) => {
-    return wishlistItems.some(item => item._id === productId);
-  };  useEffect(() => {
+  // Variant helper functions
+  const getDefaultVariant = (product) => {
+    if (!product?.hasVariants || !product?.variants?.length) return null;
+    
+    // Filter variants with stock > 0
+    const availableVariants = product.variants.filter(v => v.stock > 0);
+    if (!availableVariants.length) return null;
+    
+    // Find explicitly marked default variant
+    const defaultVariant = availableVariants.find(v => v.isDefault);
+    if (defaultVariant) return defaultVariant;
+    
+    // Return cheapest variant as default
+    return availableVariants.reduce((cheapest, current) => 
+      current.price < cheapest.price ? current : cheapest
+    );
+  };
+  const getDisplayPrice = (product) => {
+    if (product.hasVariants && product.variants?.length > 0) {
+      const defaultVariant = getDefaultVariant(product);
+      return defaultVariant ? defaultVariant.price : product.price;
+    }
+    
+    return product.price;
+  };
+
+  const getDisplayOriginalPrice = (product) => {
+    if (product.hasVariants && product.variants?.length > 0) {
+      const defaultVariant = getDefaultVariant(product);
+      return defaultVariant ? defaultVariant.originalPrice : product.originalPrice;
+    }
+    
+    return product.originalPrice;
+  };
+
+  const getDisplayStock = (product) => {
+    if (product.hasVariants && product.variants?.length > 0) {
+      const defaultVariant = getDefaultVariant(product);
+      return defaultVariant ? defaultVariant.stock : 0;
+    }
+    
+    return product.stock;
+  };
+useEffect(() => {
     const token = getAuthToken();
     setIsAuthenticated(!!token);
     
     setLoading(true);
-    let url = 'https://coms-again.onrender.com/api/products';
+    let url = 'http://localhost:5001/api/products';
     if (categoryParam) url += `?category=${encodeURIComponent(categoryParam)}`;
 
     setTimeout(() => {
@@ -173,23 +233,26 @@ const ProductList = () => {
   const getLoadingState = (productId, action) => {
     return loadingStates[`${productId}-${action}`] || false;
   };
-
   const handleWishlistToggle = async (productId, isInWishlist) => {
     setLoadingState(productId, 'wishlist', true);
     try {
       if (isInWishlist) {
-        await apiCall('https://coms-again.onrender.com/api/products/wishlist/remove', {
+        await apiCall('http://localhost:5001/api/products/wishlist/remove', {
           method: 'POST',
           body: JSON.stringify({ productId })
         });
-        setWishlist(prev => prev.filter(id => id !== productId));
+        setWishlistItems(prev => prev.filter(item => item._id !== productId));
         showNotification('Removed from wishlist');
       } else {
-        await apiCall('https://coms-again.onrender.com/api/products/wishlist/add', {
+        await apiCall('http://localhost:5001/api/products/wishlist/add', {
           method: 'POST',
           body: JSON.stringify({ productId })
         });
-        setWishlist(prev => [...prev, productId]);
+        // Optimistically add to wishlist - you might want to fetch the full item details
+        const product = products.find(p => p._id === productId);
+        if (product) {
+          setWishlistItems(prev => [...prev, product]);
+        }
         showNotification('Added to wishlist');
       }
     } catch (error) {
@@ -197,25 +260,70 @@ const ProductList = () => {
     } finally {
       setLoadingState(productId, 'wishlist', false);
     }
-  };
-
-  const handleAddToCart = async (productId, quantity = 1) => {
+  };  const handleAddToCart = async (productId, quantity = 1, selectedVariant = null) => {
     setLoadingState(productId, 'cart', true);
     try {
-      await apiCall('https://coms-again.onrender.com/api/products/cart/add', {
+      const product = products.find(p => p._id === productId);
+      
+      // If product has variants and no variant is selected, show popup
+      if (product?.hasVariants && !selectedVariant) {
+        setPopupProduct(product);
+        setPopupAction('cart');
+        setShowVariantPopup(true);
+        setLoadingState(productId, 'cart', false);
+        return;
+      }
+      
+      let variantId = null;
+      
+      // Get variant ID if available
+      if (selectedVariant) {
+        variantId = selectedVariant.id;
+      } else if (product?.hasVariants) {
+        const defaultVariant = getDefaultVariant(product);
+        if (defaultVariant) {
+          variantId = defaultVariant.id;
+        } else {
+          showNotification('No variants available for this product', 'error');
+          return;
+        }
+      }
+
+      const requestBody = { productId, quantity };
+      if (variantId) {
+        requestBody.variantId = variantId;
+      }
+
+      await apiCall('http://localhost:5001/api/products/cart/add', {
         method: 'POST',
-        body: JSON.stringify({ productId, quantity })
+        body: JSON.stringify(requestBody)
       });
       
-      const existingItem = cart.find(item => item.product === productId);
+      // Update local cart state
+      const existingItem = cart.find(item => {
+        if (variantId) {
+          return item.product === productId && item.selectedVariant?.id === variantId;
+        }
+        return item.product === productId && !item.selectedVariant;
+      });
+      
       if (existingItem) {
-        setCart(prev => prev.map(item => 
-          item.product === productId 
+        setCart(prev => prev.map(item => {
+          if (variantId) {
+            return (item.product === productId && item.selectedVariant?.id === variantId)
+              ? { ...item, quantity: item.quantity + quantity }
+              : item;
+          }
+          return item.product === productId && !item.selectedVariant
             ? { ...item, quantity: item.quantity + quantity }
-            : item
-        ));
+            : item;
+        }));
       } else {
-        setCart(prev => [...prev, { product: productId, quantity }]);
+        const newCartItem = { product: productId, quantity };
+        if (selectedVariant) {
+          newCartItem.selectedVariant = selectedVariant;
+        }
+        setCart(prev => [...prev, newCartItem]);
       }
       
       showNotification('Added to cart');
@@ -225,12 +333,24 @@ const ProductList = () => {
       setLoadingState(productId, 'cart', false);
     }
   };
-
-  const handleBuyNow = (productId) => {
-    navigate(`/checkout?product=${productId}&quantity=1`);
-  };
-
-  const renderRatingStars = (rating) => {
+  const handleBuyNow = (productId, quantity = 1, selectedVariant = null) => {
+    const product = products.find(p => p._id === productId);
+    
+    // If product has variants and no variant is selected, show popup
+    if (product?.hasVariants && !selectedVariant) {
+      setPopupProduct(product);
+      setPopupAction('buy');
+      setShowVariantPopup(true);
+      return;
+    }
+    
+    // Navigate to checkout with variant info if available
+    let url = `/checkout?product=${productId}&quantity=${quantity}`;
+    if (selectedVariant) {
+      url += `&variantId=${selectedVariant.id}`;
+    }
+    navigate(url);
+  };const renderRatingStars = (rating) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
@@ -243,7 +363,7 @@ const ProductList = () => {
     return (
       <div className="flex items-center gap-1">
         {stars}
-        <span className="text-gray-500 text-sm ml-1">({rating.toFixed(1)})</span>
+        <span className="text-gray-600 text-sm ml-2 font-medium">({rating.toFixed(1)})</span>
       </div>
     );
   };
@@ -280,302 +400,361 @@ const ProductList = () => {
       </motion.div>
     );
   }
-
-  const ProductCard = ({ product }) => {
-    const isInWishlist = wishlistItems.includes(product._id);
-
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-      >
-        <div className="relative">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-48 object-cover"
-          />
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleWishlistToggle(product._id, isInWishlist(product._id));
-            }}
-            className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-          >
-            {isInWishlist(product._id) ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="w-6 h-6 text-red-500"
-              >
-                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-              </svg>
-            ) : (
-              <FiHeart className="w-6 h-6" />
-            )}
-          </button>
-        </div>
-
-        <div className="p-4">
-          <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
-          <div className="flex items-center justify-between">
-            <p className="text-xl font-bold text-primary">${product.price}</p>
-            <button
-              onClick={() => handleAddToCart(product._id)}
-              className="p-2 text-primary hover:bg-primary hover:text-white rounded-full transition-colors"
-            >
-              <FiShoppingCart className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="mt-2">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, index) => (
-                <FiStar
-                  key={index}
-                  className={`w-4 h-4 ${
-                    index < Math.floor(product.rating)
-                      ? 'text-yellow-400 fill-current'
-                      : 'text-gray-300'
-                  }`}
-                />
-              ))}
-              <span className="ml-1 text-sm text-gray-600">
-                ({product.numReviews})
-              </span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
       {/* Notifications */}
       <AnimatePresence>
         <div className="fixed top-4 right-4 z-50 space-y-2">
           {notifications.map((notification) => (
             <motion.div
               key={notification.id}
-              initial={{ opacity: 0, x: 300, scale: 0.8 }}
+              initial={{ opacity: 0, x: 300, scale: 0.3 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 300, scale: 0.8 }}
-              className={`px-4 py-3 rounded-xl shadow-lg ${
+              exit={{ opacity: 0, x: 300, scale: 0.3 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-lg border ${
                 notification.type === 'error' 
-                  ? 'bg-red-500 text-white' 
-                  : 'bg-emerald-500 text-white'
+                  ? 'bg-red-500/95 text-white border-red-400/40 shadow-red-500/25' 
+                  : 'bg-[#2ecc71]/95 text-white border-[#2ecc71]/40 shadow-[#2ecc71]/25'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <FiCheck className="w-4 h-4" />
-                {notification.message}
+              <div className="flex items-center gap-3">
+                <FiCheck className="w-5 h-5" />
+                <span className="font-medium">{notification.message}</span>
               </div>
             </motion.div>
           ))}
         </div>
-      </AnimatePresence>
-
-      {/* Header */}
+      </AnimatePresence>      {/* Header */}
       <motion.div 
-        initial={{ y: -20, opacity: 0 }} 
-        animate={{ y: 0, opacity: 1 }} 
-        className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm"
+        initial={{ y: -10, opacity: 0 }} 
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-green-100/50 shadow-lg shadow-[#2ecc71]/5"
       >
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate(-1)} 
-                className="mr-4 p-2 rounded-xl hover:bg-gray-100 transition-colors" 
-                aria-label="Go back"
-              >
-                <FiArrowLeft className="w-6 h-6 text-gray-700" />
-              </motion.button>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  {categoryParam || 'All Products'}
-                </h1>
-                <p className="text-sm text-gray-500">{filtered.length} products found</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                {viewMode === 'grid' ? <FiList className="w-5 h-5" /> : <FiGrid className="w-5 h-5" />}
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowFilters(!showFilters)}
-                className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                <FiFilter className="w-5 h-5" />
-              </motion.button>
-            </div>
-          </div>
-
-          {/* Search and Sort */}
-          <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {/* Back Button */}
+          <div className="flex items-center justify-between mb-6">
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate(-1)} 
+              className="p-3 rounded-2xl bg-white/90 backdrop-blur-sm hover:bg-[#f8faf8] hover:shadow-lg hover:shadow-[#2ecc71]/10 transition-all duration-300 shadow-lg border border-green-100/50 group" 
+              aria-label="Go back"
             >
-              <option value="name">Sort by Name</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-              <option value="rating">Highest Rated</option>
-              <option value="newest">Newest First</option>
-            </select>
+              <FiArrowLeft className="w-5 h-5 text-[#2ecc71] group-hover:text-[#27ae60] transition-colors" />
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+              className="md:hidden p-3 rounded-2xl bg-white/90 backdrop-blur-sm hover:bg-[#f8faf8] hover:shadow-lg hover:shadow-[#2ecc71]/10 transition-all duration-300 shadow-lg border border-green-100/50 group"
+            >
+              {viewMode === 'grid' ? 
+                <FiList className="w-5 h-5 text-[#2ecc71] group-hover:text-[#27ae60] transition-colors" /> : 
+                <FiGrid className="w-5 h-5 text-[#2ecc71] group-hover:text-[#27ae60] transition-colors" />
+              }
+            </motion.button>
           </div>
-        </div>
+
+          {/* Smart Header Row */}
+          <div className="relative">
+            <AnimatePresence>
+              {!isSearchExpanded ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center justify-between"
+                >                  {/* Title and Count */}
+                  <div className="flex items-center">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                      {categoryParam || 'All Products'}
+                    </h1>
+                    <span className="ml-3 text-sm text-gray-600 font-medium bg-gray-100 px-3 py-1 rounded-full">
+                      {filtered.length} products
+                    </span>
+                  </div>
+
+                  {/* Action Icons */}
+                  <div className="flex items-center gap-2">
+                    {/* Search Icon */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsSearchExpanded(true)}
+                      className="p-3 rounded-2xl bg-white/90 backdrop-blur-sm hover:bg-[#f8faf8] hover:shadow-lg hover:shadow-[#2ecc71]/10 transition-all duration-300 shadow-lg border border-green-100/50 group"
+                      title="Search Products"
+                    >
+                      <FiSearch className="w-5 h-5 text-[#2ecc71] group-hover:text-[#27ae60] transition-colors" />
+                    </motion.button>
+
+                    {/* Filter Icon */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`p-3 rounded-2xl backdrop-blur-sm transition-all duration-300 shadow-lg border group ${
+                        showFilters 
+                          ? 'bg-[#2ecc71] border-[#2ecc71] shadow-[#2ecc71]/20' 
+                          : 'bg-white/90 border-green-100/50 hover:bg-[#f8faf8] hover:shadow-lg hover:shadow-[#2ecc71]/10'
+                      }`}
+                      title="Toggle Filters"
+                    >
+                      <FiFilter className={`w-5 h-5 transition-colors ${
+                        showFilters ? 'text-white' : 'text-[#2ecc71] group-hover:text-[#27ae60]'
+                      }`} />
+                    </motion.button>
+
+                    {/* Sort Icon */}
+                    <div className="relative">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowSortDropdown(!showSortDropdown)}
+                        className={`p-3 rounded-2xl backdrop-blur-sm transition-all duration-300 shadow-lg border group ${
+                          showSortDropdown 
+                            ? 'bg-[#2ecc71] border-[#2ecc71] shadow-[#2ecc71]/20' 
+                            : 'bg-white/90 border-green-100/50 hover:bg-[#f8faf8] hover:shadow-lg hover:shadow-[#2ecc71]/10'
+                        }`}
+                        title="Sort Products"
+                      >
+                        <FiChevronDown className={`w-5 h-5 transition-colors ${
+                          showSortDropdown ? 'text-white' : 'text-[#2ecc71] group-hover:text-[#27ae60]'
+                        }`} />
+                      </motion.button>
+
+                      {/* Sort Dropdown */}
+                      <AnimatePresence>
+                        {showSortDropdown && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute right-0 top-full mt-2 w-48 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-green-100/50 overflow-hidden z-50"
+                          >
+                            {[
+                              { value: 'name', label: 'Name (A-Z)' },
+                              { value: 'price-low', label: 'Price (Low to High)' },
+                              { value: 'price-high', label: 'Price (High to Low)' },
+                              { value: 'rating', label: 'Rating (High to Low)' }
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setSortBy(option.value);
+                                  setShowSortDropdown(false);
+                                }}
+                                className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                                  sortBy === option.value
+                                    ? 'bg-[#2ecc71] text-white'
+                                    : 'text-gray-700 hover:bg-[#f8faf8]'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* View Mode Toggle (Desktop) */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                      className="hidden md:block p-3 rounded-2xl bg-white/90 backdrop-blur-sm hover:bg-[#f8faf8] hover:shadow-lg hover:shadow-[#2ecc71]/10 transition-all duration-300 shadow-lg border border-green-100/50 group"
+                      title="Toggle View Mode"
+                    >
+                      {viewMode === 'grid' ? 
+                        <FiList className="w-5 h-5 text-[#2ecc71] group-hover:text-[#27ae60] transition-colors" /> : 
+                        <FiGrid className="w-5 h-5 text-[#2ecc71] group-hover:text-[#27ae60] transition-colors" />
+                      }
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-4"
+                >
+                  {/* Expanded Search Bar */}
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <FiSearch className="h-5 w-5 text-[#2ecc71]/60" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      className="block w-full pl-12 pr-4 py-4 border-0 rounded-2xl bg-white/90 backdrop-blur-lg shadow-lg shadow-[#2ecc71]/5 focus:ring-2 focus:ring-[#2ecc71]/50 focus:bg-white focus:shadow-xl focus:shadow-[#2ecc71]/10 transition-all duration-300 text-gray-800 placeholder-[#2ecc71]/50 border border-green-100/50"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      autoFocus
+                      onBlur={() => setIsSearchExpanded(false)}
+                    />
+                  </div>
+
+                  {/* Close Search Button */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setIsSearchExpanded(false);
+                      setSearchQuery('');
+                    }}
+                    className="p-3 rounded-2xl bg-white/90 backdrop-blur-sm hover:bg-red-50 hover:shadow-lg hover:shadow-red-500/10 transition-all duration-300 shadow-lg border border-red-100/50 group"
+                    title="Close Search"
+                  >
+                    <FiX className="w-5 h-5 text-red-500 group-hover:text-red-600 transition-colors" />
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>        </div>
       </motion.div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex gap-6">
-          {/* Sidebar Filters */}
+        <div className="flex gap-6">{/* Sidebar Filters */}
           <AnimatePresence>
             {(showFilters || window.innerWidth >= 768) && (
               <motion.div 
                 initial={{ x: -300, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -300, opacity: 0 }}
-                className="fixed md:static inset-y-0 left-0 z-30 w-80 md:w-64 bg-white p-6 rounded-xl shadow-lg border space-y-6 overflow-y-auto"
-              >
-                <div className="flex items-center justify-between">
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className="fixed md:static inset-y-0 left-0 z-30 w-80 md:w-64 bg-white/95 backdrop-blur-xl p-6 rounded-3xl shadow-2xl shadow-[#2ecc71]/10 border border-green-100/50 space-y-6 overflow-y-auto"
+              >                <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-800">Filters</h2>
                   <div className="flex gap-2">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={clearAllFilters}
-                      className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors"
+                      className="text-sm text-[#2ecc71] hover:text-[#27ae60] font-medium transition-colors px-3 py-1 rounded-xl hover:bg-gray-50"
                     >
                       Clear All
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setShowFilters(false)}
-                      className="md:hidden p-1 rounded hover:bg-gray-100"
+                      className="md:hidden p-2 rounded-xl hover:bg-gray-50 transition-colors"
                     >
-                      <FiX className="w-4 h-4" />
-                    </button>
+                      <FiX className="w-4 h-4 text-gray-600" />
+                    </motion.button>
                   </div>
-                </div>
-
-                {/* Price Range */}
-                <div className="space-y-3">
+                </div>                {/* Price Range */}
+                <div className="space-y-4">
                   <h3 className="font-medium text-gray-700">Price Range</h3>
-                  <div className="px-2">
-                    <Slider
-                      range
-                      min={Math.floor(priceRange[0])}
-                      max={Math.ceil(priceRange[1])}
-                      value={priceRange}
-                      onChange={(value) => setPriceRange(value)}
-                      trackStyle={[{ backgroundColor: '#10b981' }]}
-                      handleStyle={[
-                        { borderColor: '#10b981', backgroundColor: '#10b981' }, 
-                        { borderColor: '#10b981', backgroundColor: '#10b981' }
-                      ]}
-                    />
+                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                    <div className="px-2 mb-3">
+                      <Slider
+                        range
+                        min={Math.floor(priceRange[0])}
+                        max={Math.ceil(priceRange[1])}
+                        value={priceRange}
+                        onChange={(value) => setPriceRange(value)}
+                        trackStyle={[{ backgroundColor: '#2ecc71', height: 6 }]}
+                        railStyle={{ backgroundColor: '#f3f4f6', height: 6 }}
+                        handleStyle={[
+                          { 
+                            borderColor: '#2ecc71', 
+                            backgroundColor: '#2ecc71',
+                            width: 20,
+                            height: 20,
+                            marginTop: -7,
+                            boxShadow: '0 4px 12px rgba(46, 204, 113, 0.3)'
+                          }, 
+                          { 
+                            borderColor: '#2ecc71', 
+                            backgroundColor: '#2ecc71',
+                            width: 20,
+                            height: 20,
+                            marginTop: -7,
+                            boxShadow: '0 4px 12px rgba(46, 204, 113, 0.3)'
+                          }
+                        ]}
+                      />
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-600 font-medium">
+                      <span>Rs.{priceRange[0]}</span>
+                      <span>Rs.{priceRange[1]}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}</span>
-                  </div>
-                </div>
-
-                {/* Categories */}
-                <div className="space-y-3">
+                </div>                {/* Categories */}
+                <div className="space-y-4">
                   <h3 className="font-medium text-gray-700">Categories</h3>
                   <div className="space-y-2">
                     {categoryOptions.map((cat) => (
                       <motion.label 
                         key={cat} 
                         whileHover={{ x: 4 }}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all duration-200 border border-transparent hover:border-gray-200"
                       >
                         <input
                           type="checkbox"
                           checked={selectedCategories.includes(cat)}
                           onChange={() => handleCategoryToggle(cat)}
-                          className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          className="w-4 h-4 text-[#2ecc71] border-gray-300 rounded focus:ring-[#2ecc71] focus:ring-2"
                         />
-                        <span className="text-sm text-gray-700">{cat}</span>
+                        <span className="text-sm text-gray-700 font-medium">{cat}</span>
                       </motion.label>
                     ))}
                   </div>
                 </div>
 
                 {/* Ratings */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <h3 className="font-medium text-gray-700">Minimum Rating</h3>
                   <div className="space-y-2">
                     {[4, 3, 2, 1].map((star) => (
                       <motion.label 
                         key={star} 
                         whileHover={{ x: 4 }}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all duration-200 border border-transparent hover:border-gray-200"
                       >
                         <input
                           type="radio"
                           name="rating"
                           checked={ratingFilter === star}
                           onChange={() => setRatingFilter(star)}
-                          className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                          className="w-4 h-4 text-[#2ecc71] border-gray-300 focus:ring-[#2ecc71] focus:ring-2"
                         />
-                        <div className="flex items-center gap-1">
-                          {[...Array(star)].map((_, i) => (
-                            <FiStar key={i} className="w-4 h-4 text-yellow-400 fill-current" />
-                          ))}
-                          <span className="text-sm text-gray-600">& up</span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex">
+                            {[...Array(star)].map((_, i) => (
+                              <FiStar key={i} className="w-4 h-4 text-yellow-400 fill-current" />
+                            ))}
+                          </div>
+                          <span className="text-sm text-gray-700 font-medium">& up</span>
                         </div>
                       </motion.label>
                     ))}
                     <motion.label 
                       whileHover={{ x: 4 }}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all duration-200 border border-transparent hover:border-gray-200"
                     >
                       <input
                         type="radio"
                         name="rating"
                         checked={ratingFilter === 0}
                         onChange={() => setRatingFilter(0)}
-                        className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                        className="w-4 h-4 text-[#2ecc71] border-gray-300 focus:ring-[#2ecc71] focus:ring-2"
                       />
-                      <span className="text-sm text-gray-700">All ratings</span>
+                      <span className="text-sm text-gray-700 font-medium">All ratings</span>
                     </motion.label>
                   </div>
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
-
-          {/* Products Grid */}
+          </AnimatePresence>          {/* Products Grid */}
           <div className="flex-1">
             {loading ? (
               <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
@@ -584,14 +763,14 @@ const ProductList = () => {
                     key={i} 
                     initial={{ opacity: 0, y: 20 }} 
                     animate={{ opacity: 1, y: 0 }} 
-                    transition={{ delay: i * 0.1 }} 
-                    className="bg-white rounded-2xl shadow-sm overflow-hidden animate-pulse"
+                    transition={{ delay: i * 0.1, type: "spring", stiffness: 400 }} 
+                    className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg shadow-[#2ecc71]/5 overflow-hidden animate-pulse border border-green-100/50"
                   >
-                    <div className="h-56 bg-gray-200"></div>
+                    <div className="h-56 bg-gradient-to-br from-green-100 to-green-50"></div>
                     <div className="p-6 space-y-3">
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                      <div className="h-8 bg-gray-300 rounded w-1/3 mt-4"></div>
+                      <div className="h-4 bg-green-200/60 rounded-xl w-3/4"></div>
+                      <div className="h-4 bg-green-200/40 rounded-xl w-1/2"></div>
+                      <div className="h-10 bg-gradient-to-r from-green-200/60 to-green-300/60 rounded-2xl w-full mt-4"></div>
                     </div>
                   </motion.div>
                 ))}
@@ -600,19 +779,22 @@ const ProductList = () => {
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 className="text-center py-20"
               >
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FiSearch className="w-12 h-12 text-gray-400" />
+                <div className="w-32 h-32 bg-gradient-to-br from-green-100 to-green-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#2ecc71]/10">
+                  <FiSearch className="w-16 h-16 text-[#2ecc71]/60" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">No products found</h3>
-                <p className="text-gray-500 mb-6">Try adjusting your filters or search terms</p>
-                <button
+                <h3 className="text-2xl font-semibold bg-gradient-to-r from-[#2ecc71] to-[#27ae60] bg-clip-text text-transparent mb-3">No products found</h3>
+                <p className="text-[#2ecc71]/70 mb-8 text-lg">Try adjusting your filters or search terms</p>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={clearAllFilters}
-                  className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200"
+                  className="px-8 py-4 bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white rounded-2xl hover:shadow-lg hover:shadow-[#2ecc71]/25 transition-all duration-300 shadow-lg font-medium"
                 >
                   Clear Filters
-                </button>
+                </motion.button>
               </motion.div>
             ) : (
               <motion.div 
@@ -625,25 +807,34 @@ const ProductList = () => {
                     ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
                     : 0;
                   
-                  const productIsWishlisted = isInWishlist(product._id);
-                  const cartItem = cart.find(item => item.product === product._id);
+                  // Safely check if product is in wishlist
+                  const productIsWishlisted = Array.isArray(wishlistItems) && 
+                    wishlistItems.length > 0 && 
+                    wishlistItems.some(item => item && item._id === product._id);
+                    // Check if product (or any of its variants) is in cart
+                  const cartItem = Array.isArray(cart) ? cart.find(item => {
+                    if (product.hasVariants) {
+                      // For variant products, check if any variant is in cart
+                      return item.product === product._id;
+                    } else {
+                      // For non-variant products, simple product match
+                      return item.product === product._id && !item.selectedVariant;
+                    }
+                  }) : null;
                   const isInCart = !!cartItem;
 
-                  return (
-                    <motion.div 
-                      key={product._id} 
+                  return (                    <motion.div
+                      key={product._id}
                       layout
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ y: -4 }}
-                      className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group ${
+                      transition={{ delay: index * 0.05, duration: 0.3 }}
+                      whileHover={{ y: -4, scale: 1.01 }}
+                      className={`bg-white/90 backdrop-blur-lg rounded-3xl shadow-lg shadow-[#2ecc71]/10 hover:shadow-2xl hover:shadow-[#2ecc71]/20 transition-all duration-300 overflow-hidden group border border-green-100/50 ${
                         viewMode === 'list' ? 'flex' : ''
                       }`}
-                    >
-                      {/* Product Image */}
-                      <div 
-                        className={`relative bg-gray-50 cursor-pointer overflow-hidden ${
+                    >{/* Product Image */}                      <div 
+                        className={`relative bg-gradient-to-br from-[#f8faf8] to-white cursor-pointer overflow-hidden ${
                           viewMode === 'list' ? 'w-48 h-48' : 'pt-[100%]'
                         }`}
                         onClick={() => navigate(`/products/${product._id}`)}
@@ -655,139 +846,147 @@ const ProductList = () => {
                             viewMode === 'list' 
                               ? 'w-full h-full' 
                               : 'absolute top-0 left-0 w-full h-full'
-                          } object-contain p-4 group-hover:scale-105 transition-transform duration-300`}
+                          } object-contain p-6 group-hover:scale-105 transition-transform duration-300`}
                         />
                         
                         {/* Wishlist Button */}
                         <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleWishlistToggle(product._id, productIsWishlisted);
                           }}
                           disabled={getLoadingState(product._id, 'wishlist')}
-                          className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-sm transition-all duration-200 ${
+                          className={`absolute top-4 right-4 p-3 rounded-2xl backdrop-blur-lg transition-all duration-300 shadow-lg ${
                             productIsWishlisted 
-                              ? 'bg-red-500 text-white shadow-lg' 
-                              : 'bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white'
+                              ? 'bg-red-500/90 text-white shadow-red-500/25 border border-red-400/30' 
+                              : 'bg-white/90 text-[#2ecc71] hover:bg-red-500/90 hover:text-white shadow-[#2ecc71]/10 border border-green-100/50'
                           }`}
                         >
-                          <FiHeart className={`w-4 h-4 ${productIsWishlisted ? 'fill-current' : ''}`} />
+                          <FiHeart className={`w-5 h-5 ${productIsWishlisted ? 'fill-current' : ''} transition-all duration-300`} />
                         </motion.button>
 
                         {/* Rating Badge */}
                         {avgRating > 0 && (
-                          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm">
+                          <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-lg px-3 py-2 rounded-2xl shadow-lg shadow-[#2ecc71]/10 border border-green-100/50">
                             <div className="flex items-center gap-1">
-                              <FiStar className="w-3 h-3 text-yellow-400 fill-current" />
-                              <span className="text-xs font-medium">{avgRating.toFixed(1)}</span>
+                              <FiStar className="w-4 h-4 text-yellow-400 fill-current" />
+                              <span className="text-sm font-semibold text-[#2ecc71]">{avgRating.toFixed(1)}</span>
                             </div>
                           </div>
-                        )}
-
-                        {/* Stock Badge */}
-                        {product.stock <= 0 && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                        )}                        {/* Stock Badge */}
+                        {getDisplayStock(product) <= 0 && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                            <span className="bg-red-500/95 text-white px-4 py-2 rounded-2xl text-sm font-semibold shadow-lg backdrop-blur-lg border border-red-400/30">
                               Out of Stock
                             </span>
                           </div>
                         )}
 
                         {/* Discount Badge */}
-                        {product.originalPrice && product.originalPrice > product.price && (
-                          <div className="absolute bottom-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-lg text-xs font-medium">
-                            {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                        {getDisplayOriginalPrice(product) && getDisplayOriginalPrice(product) > getDisplayPrice(product) && (
+                          <div className="absolute bottom-4 left-4 bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white px-3 py-2 rounded-2xl text-sm font-semibold shadow-lg shadow-[#2ecc71]/25">
+                            {Math.round(((getDisplayOriginalPrice(product) - getDisplayPrice(product)) / getDisplayOriginalPrice(product)) * 100)}% OFF
                           </div>
                         )}
-                      </div>
-
-                      {/* Product Info */}
+                      </div>{/* Product Info */}
                       <div className={`p-6 ${viewMode === 'list' ? 'flex-1' : ''}`}>
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="font-semibold text-lg text-gray-800 line-clamp-2 group-hover:text-emerald-600 transition-colors">
+                        <div className="flex items-start justify-between mb-3">                          <h3 className="font-bold text-lg text-gray-800 line-clamp-2 group-hover:text-[#2ecc71] transition-colors duration-300">
                             {product.name}
                           </h3>
-                        </div>
-
-                        <div className="text-xs text-emerald-600 font-medium mb-2 uppercase tracking-wide">
+                        </div>                        <div className="text-xs text-gray-600 font-semibold mb-3 uppercase tracking-wider bg-gray-100 px-2 py-1 rounded-xl inline-block">
                           {product.category}
                         </div>
 
-                        {product.description && (
-                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                        {/* Variants Badge */}
+                        {product.hasVariants && (
+                          <div className="mb-3">
+                            <span className="text-xs text-[#2ecc71] bg-[#2ecc71]/10 px-2 py-1 rounded-xl font-medium border border-[#2ecc71]/20">
+                              {product.variants?.length} variants available
+                            </span>
+                          </div>
+                        )}
+
+                        {product.description && (                          <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                             {product.description}
                           </p>
                         )}
 
                         {/* Rating */}
                         {avgRating > 0 && (
-                          <div className="mb-3">
+                          <div className="mb-4">
                             {renderRatingStars(avgRating)}
                           </div>
-                        )}
-
-                        {/* Price */}
-                        <div className="flex items-center gap-3 mb-4">
-                          <span className="text-2xl font-bold text-gray-800">
-                            Rs.{product.price}
-                          </span>
-                          {product.originalPrice && product.originalPrice > product.price && (
-                            <span className="text-gray-400 line-through text-lg">
-                              Rs.{product.originalPrice}
+                        )}                        {/* Price */}
+                        <div className="flex items-center gap-3 mb-6">
+                          {product.hasVariants && product.variants?.length > 1 ? (
+                            // Show price range for variant products
+                            <div className="flex flex-col">
+                              <span className="text-2xl font-bold text-gray-800">
+                                ₹{Math.min(...product.variants.map(v => v.price)).toLocaleString()} - ₹{Math.max(...product.variants.map(v => v.price)).toLocaleString()}
+                              </span>
+                              <span className="text-xs text-gray-500 font-medium">
+                                Price varies by variant
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-2xl font-bold text-gray-800">
+                              ₹{getDisplayPrice(product).toLocaleString()}
                             </span>
                           )}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2">
+                          {getDisplayOriginalPrice(product) && getDisplayOriginalPrice(product) > getDisplayPrice(product) && !product.hasVariants && (
+                            <span className="text-gray-400 line-through text-lg">
+                              ₹{getDisplayOriginalPrice(product).toLocaleString()}
+                            </span>
+                          )}
+                        </div>{/* Action Buttons - Equal Size */}
+                        <div className="grid grid-cols-2 gap-3">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => handleAddToCart(product._id)}
-                            disabled={product.stock <= 0 || getLoadingState(product._id, 'cart')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
+                            disabled={getDisplayStock(product) <= 0 || getLoadingState(product._id, 'cart')}
+                            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl transition-all duration-300 font-semibold shadow-lg min-h-[48px] ${
                               isInCart
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-lg hover:shadow-xl'
-                            } ${product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                ? 'bg-[#f8faf8] text-[#2ecc71] border-2 border-[#2ecc71]/20 shadow-[#2ecc71]/10'
+                                : 'bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white hover:from-[#27ae60] hover:to-[#2ecc71] shadow-[#2ecc71]/25 hover:shadow-[#2ecc71]/40'
+                            } ${getDisplayStock(product) <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             {getLoadingState(product._id, 'cart') ? (
                               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                             ) : isInCart ? (
                               <>
                                 <FiCheck className="w-4 h-4" />
-                                <span className="text-sm">In Cart ({cartItem?.quantity})</span>
-                              </>
-                            ) : (
+                                <span className="text-sm">In Cart</span>
+                              </>                            ) : (
                               <>
                                 <FiShoppingCart className="w-4 h-4" />
-                                <span className="text-sm">Add to Cart</span>
+                                <span className="text-sm">
+                                  {product.hasVariants ? 'Select & Add' : 'Add to Cart'}
+                                </span>
                               </>
                             )}
-                          </motion.button>
-
-                          <motion.button
+                          </motion.button>                          <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => handleBuyNow(product._id)}
-                            disabled={product.stock <= 0}
-                            className={`px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
-                              product.stock <= 0 
+                            disabled={getDisplayStock(product) <= 0}
+                            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl transition-all duration-300 font-semibold shadow-lg min-h-[48px] ${
+                              getDisplayStock(product) <= 0 
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-lg hover:shadow-xl'
-                            }`}
-                          >
+                                : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-amber-500/25 hover:shadow-amber-500/40'
+                            }`}                          >
                             <FiZap className="w-4 h-4" />
+                            <span className="text-sm">
+                              {product.hasVariants ? 'Select & Buy' : 'Buy Now'}
+                            </span>
                           </motion.button>
-                        </div>
-
-                        {/* Stock Info */}
-                        {product.stock > 0 && product.stock <= 10 && (
-                          <div className="mt-3 text-center">
-                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                              Only {product.stock} left in stock
+                        </div>                        {/* Stock Info */}
+                        {getDisplayStock(product) > 0 && getDisplayStock(product) <= 10 && (
+                          <div className="mt-4 text-center">
+                            <span className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-2xl font-medium border border-amber-200">
+                              Only {getDisplayStock(product)} left in stock
                             </span>
                           </div>
                         )}
@@ -797,17 +996,17 @@ const ProductList = () => {
                 })}
               </motion.div>
             )}
-          </div>
-        </div>
+          </div>        </div>
       </div>
-
+      
       {/* Mobile Filter Overlay */}
       {showFilters && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
           onClick={() => setShowFilters(false)}
         />
       )}
@@ -819,25 +1018,37 @@ const ProductList = () => {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setShowFilters(true)}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-full shadow-lg flex items-center justify-center z-30"
+        className="md:hidden fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white rounded-2xl shadow-2xl shadow-[#2ecc71]/30 flex items-center justify-center z-30 border border-green-400/30 backdrop-blur-lg"
       >
         <FiFilter className="w-6 h-6" />
-      </motion.button>
-
-      {/* Back to Top Button */}
+      </motion.button>      {/* Back to Top Button */}
       <motion.button
         initial={{ opacity: 0, y: 100 }}
         animate={{ 
-          opacity: window.scrollY > 500 ? 1 : 0,
-          y: window.scrollY > 500 ? 0 : 100 
+          opacity: typeof window !== 'undefined' && window.scrollY > 500 ? 1 : 0,
+          y: typeof window !== 'undefined' && window.scrollY > 500 ? 0 : 100 
         }}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-6 left-6 w-12 h-12 bg-white text-gray-600 rounded-full shadow-lg flex items-center justify-center z-30 border border-gray-200"
+        className="fixed bottom-6 left-6 w-14 h-14 bg-white/90 backdrop-blur-lg text-[#2ecc71] rounded-2xl shadow-2xl shadow-[#2ecc71]/20 flex items-center justify-center z-30 border border-green-100 hover:bg-[#f8faf8] transition-all duration-300"
       >
         <FiArrowLeft className="w-5 h-5 rotate-90" />
       </motion.button>
+
+      {/* Variant Selection Popup */}
+      <VariantPopup
+        isOpen={showVariantPopup}
+        onClose={() => {
+          setShowVariantPopup(false);
+          setPopupProduct(null);
+          setPopupAction('cart');
+        }}
+        product={popupProduct}
+        onAddToCart={handleAddToCart}
+        onBuyNow={handleBuyNow}
+        actionType={popupAction}
+      />
     </div>
   );
 };

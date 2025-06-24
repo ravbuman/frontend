@@ -30,7 +30,7 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
 
   const fetchWishlist = async () => {
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/wishlist/me', {
+      const response = await fetch('http://localhost:5001/api/products/wishlist/me', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -55,7 +55,7 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
     setRemovingItems(prev => new Set(prev).add(productId));
     
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/wishlist/remove', {
+      const response = await fetch('http://localhost:5001/api/products/wishlist/remove', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
     
     try {
       // First add to cart
-      const addToCartResponse = await fetch('https://coms-again.onrender.com/api/products/cart/add', {
+      const addToCartResponse = await fetch('http://localhost:5001/api/products/cart/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
   };
   const clearWishlist = async () => {
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/wishlist/clear', {
+      const response = await fetch('http://localhost:5001/api/products/wishlist/clear', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -131,24 +131,22 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
     } catch (error) {
       toast.error('Error clearing wishlist');
     }
-  };
-  if (loading) {
+  };  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex justify-center items-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white flex justify-center items-center">
         <motion.div 
           className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl"
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
+          <div className="w-8 h-8 border-4 border-[#2ecc71] border-t-transparent rounded-full"></div>
         </motion.div>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex justify-center items-center">
+    return (      <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white flex justify-center items-center">
         <motion.div 
           className="text-center bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl max-w-md"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -159,7 +157,7 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
           <p className="text-gray-600 mb-6">{error}</p>
           <button 
             onClick={fetchWishlist}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg mx-auto"
+            className="flex items-center gap-2 px-6 py-3 bg-[#2ecc71] text-white rounded-xl hover:bg-[#27ae60] transition-all duration-200 shadow-lg mx-auto"
           >
             <FiRefreshCw className="w-4 h-4" />
             Try Again
@@ -169,21 +167,19 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
     );
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white py-8">
+      <div className="container mx-auto px-4 max-w-7xl">        {/* Header */}
         <motion.div 
-          className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-8 gap-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <FiHeart className="w-6 h-6 text-white" />
+        >          <div className="flex items-center gap-3 md:gap-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-[#2ecc71] rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg">
+              <FiHeart className="w-5 h-5 md:w-6 md:h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">My Wishlist</h1>
-              <p className="text-gray-600">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">My Wishlist</h1>
+              <p className="text-sm md:text-base text-gray-600">
                 {wishlistItems.length === 0 
                   ? 'No items in your wishlist' 
                   : `${wishlistItems.length} item${wishlistItems.length !== 1 ? 's' : ''} saved`
@@ -191,11 +187,10 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
               </p>
             </div>
           </div>
-          
-          {wishlistItems.length > 0 && (
+            {wishlistItems.length > 0 && (
             <motion.button
               onClick={clearWishlist}
-              className="flex items-center gap-2 px-6 py-3 bg-white/80 backdrop-blur-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-white/80 backdrop-blur-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg text-sm md:text-base"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -210,25 +205,23 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
             className="text-center py-16"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-12 shadow-xl border border-white/30 max-w-md mx-auto">
-              <div className="w-24 h-24 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FiHeart className="w-12 h-12 text-emerald-500" />
+          >            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-xl border border-white/30 max-w-md mx-auto">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-r from-[#f8faf8] to-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
+                <FiHeart className="w-10 h-10 md:w-12 md:h-12 text-[#2ecc71]" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">Your wishlist is empty</h3>
-              <p className="text-gray-600 mb-8">Save items you love to your wishlist and shop them later</p>
+              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-3 md:mb-4">Your wishlist is empty</h3>
+              <p className="text-sm md:text-base text-gray-600 mb-6 md:mb-8">Save items you love to your wishlist and shop them later</p>
               <Link 
                 to="/products" 
-                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg font-semibold"
+                className="inline-flex items-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-[#2ecc71] text-white rounded-xl hover:bg-[#27ae60] transition-all duration-200 shadow-lg font-semibold text-sm md:text-base"
               >
-                <FiShoppingBag className="w-5 h-5" />
+                <FiShoppingBag className="w-4 h-4 md:w-5 md:h-5" />
                 Continue Shopping
               </Link>
             </div>
-          </motion.div>
-        ) : (
+          </motion.div>        ) : (
           <motion.div 
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -271,60 +264,57 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
                         </span>
                       </div>
                     )}
-                  </div>
-
-                  {/* Product Details */}
-                  <div className="p-6">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2 group-hover:text-emerald-600 transition-colors overflow-hidden" style={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'}}>
+                  </div>                  {/* Product Details */}
+                  <div className="p-4 md:p-6">                    <div className="mb-3 md:mb-4">
+                      <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-2 group-hover:text-[#2ecc71] transition-colors overflow-hidden" style={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'}}>
                         {item.name}
                       </h3>
                       <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-emerald-600">₹{item.price}</span>
+                        <span className="text-xl md:text-2xl font-bold text-[#2ecc71]">₹{item.price}</span>
                         {item.originalPrice && item.originalPrice > item.price && (
-                          <span className="text-sm text-gray-400 line-through">₹{item.originalPrice}</span>
+                          <span className="text-xs md:text-sm text-gray-400 line-through">₹{item.originalPrice}</span>
                         )}
                       </div>
                     </div>
 
                     {/* Rating */}
                     {item.rating && (
-                      <div className="flex items-center gap-1 mb-4">
+                      <div className="flex items-center gap-1 mb-3 md:mb-4">
                         {[...Array(5)].map((_, i) => (
                           <FiStar
                             key={i}
-                            className={`w-4 h-4 ${
+                            className={`w-3 h-3 md:w-4 md:h-4 ${
                               i < Math.floor(item.rating) 
                                 ? 'text-yellow-400 fill-current' 
                                 : 'text-gray-300'
                             }`}
                           />
                         ))}
-                        <span className="text-sm text-gray-600 ml-1">
+                        <span className="text-xs md:text-sm text-gray-600 ml-1">
                           ({item.numReviews || 0})
                         </span>
                       </div>
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 md:gap-3">
                       <motion.button
                         onClick={() => moveToCart(item._id)}
-                        disabled={movingItems.has(item._id) || item.stock <= 0}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg ${
+                        disabled={movingItems.has(item._id) || item.stock <= 0}                        className={`flex-1 flex items-center justify-center gap-1 md:gap-2 px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl font-semibold transition-all duration-200 shadow-lg text-xs md:text-sm ${
                           item.stock <= 0
                             ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700'
+                            : 'bg-[#2ecc71] text-white hover:bg-[#27ae60]'
                         }`}
                         whileHover={item.stock > 0 ? { scale: 1.02 } : {}}
                         whileTap={item.stock > 0 ? { scale: 0.98 } : {}}
                       >
                         {movingItems.has(item._id) ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <div className="w-3 h-3 md:w-4 md:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <>
-                            <FiShoppingCart className="w-4 h-4" />
-                            {item.stock <= 0 ? 'Out of Stock' : 'Move to Cart'}
+                            <FiShoppingCart className="w-3 h-3 md:w-4 md:h-4" />
+                            <span className="hidden sm:inline">{item.stock <= 0 ? 'Out of Stock' : 'Move to Cart'}</span>
+                            <span className="sm:hidden">{item.stock <= 0 ? 'Out' : 'Cart'}</span>
                           </>
                         )}
                       </motion.button>
@@ -332,14 +322,14 @@ const Wishlist = () => {  const [wishlistItems, setWishlistItems] = useState([])
                       <motion.button
                         onClick={() => removeFromWishlist(item._id)}
                         disabled={removingItems.has(item._id)}
-                        className="p-3 bg-white/80 backdrop-blur-sm text-red-500 border border-red-200 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
+                        className="p-2 md:p-3 bg-white/80 backdrop-blur-sm text-red-500 border border-red-200 rounded-lg md:rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
                         {removingItems.has(item._id) ? (
-                          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                          <div className="w-3 h-3 md:w-4 md:h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
                         ) : (
-                          <FiTrash2 className="w-4 h-4" />
+                          <FiTrash2 className="w-3 h-3 md:w-4 md:h-4" />
                         )}
                       </motion.button>
                     </div>

@@ -190,6 +190,12 @@ export const PercentIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
+export const CheckIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
 export default {
   DashboardIcon,
   ProductsIcon,
@@ -206,8 +212,7 @@ export default {
   ShippedIcon,
   DeliveredIcon,
   CancelledIcon,
-  PaidIcon,
-  StatsIcon,
+  PaidIcon,  StatsIcon,
   MoneyIcon,
   PackageIcon,
   PeopleIcon,
@@ -217,8 +222,10 @@ export default {
   ImageIcon,
   SaveIcon,
   UpdateIcon,
+  CheckIcon,
   EmailIcon,
   PhoneIcon,
   CalendarIcon,
-  PercentIcon
+  PercentIcon,
+  CheckIcon
 };

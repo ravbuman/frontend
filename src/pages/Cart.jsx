@@ -21,7 +21,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
 
   const fetchCart = async () => {
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/cart/me', {
+      const response = await fetch('http://localhost:5001/api/products/cart/me', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -38,20 +38,26 @@ const Cart = () => {  const [cart, setCart] = useState([]);
     } finally {
       setLoading(false);
     }
-  };
-  const updateQuantity = async (productId, qty) => {
-    if (updatingItems.has(productId)) return;
+  };  const updateQuantity = async (productId, qty, variantId = null) => {
+    const itemKey = variantId ? `${productId}-${variantId}` : productId;
+    if (updatingItems.has(itemKey)) return;
     
-    setUpdatingItems(prev => new Set(prev).add(productId));
+    setUpdatingItems(prev => new Set(prev).add(itemKey));
     
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/cart/update', {
-        method: 'Put',
+      const requestBody = { productId, qty };
+      if (variantId) {
+        requestBody.variantId = variantId;
+      }
+
+      const response = await fetch('http://localhost:5001/api/products/cart/update', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ productId, qty })      });
+        body: JSON.stringify(requestBody)
+      });
 
       if (response.ok) {
         await fetchCart();
@@ -64,25 +70,30 @@ const Cart = () => {  const [cart, setCart] = useState([]);
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
-        newSet.delete(productId);
+        newSet.delete(itemKey);
         return newSet;
       });
     }
   };
-
-  const removeItem = async (productId) => {
-    if (updatingItems.has(productId)) return;
+  const removeItem = async (productId, variantId = null) => {
+    const itemKey = variantId ? `${productId}-${variantId}` : productId;
+    if (updatingItems.has(itemKey)) return;
     
-    setUpdatingItems(prev => new Set(prev).add(productId));
+    setUpdatingItems(prev => new Set(prev).add(itemKey));
     
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/cart/remove', {
+      const requestBody = { productId };
+      if (variantId) {
+        requestBody.variantId = variantId;
+      }
+
+      const response = await fetch('http://localhost:5001/api/products/cart/remove', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ productId })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
@@ -95,7 +106,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
-        newSet.delete(productId);
+        newSet.delete(itemKey);
         return newSet;
       });
     }
@@ -106,14 +117,13 @@ const Cart = () => {  const [cart, setCart] = useState([]);
   const deliveryCharge = subtotal > 500 ? 0 : 50;
   const total = subtotal + deliveryCharge;
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex justify-center items-center">
+    return (      <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white flex justify-center items-center">
         <motion.div 
           className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl"
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
+          <div className="w-8 h-8 border-4 border-[#2ecc71] border-t-transparent rounded-full"></div>
         </motion.div>
       </div>
     );
@@ -172,7 +182,85 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                   transition={{ delay: index * 0.1 }}
                   className="bg-white mb-4 sm:mb-6 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] hover:shadow-[12px_12px_24px_#e8eae8,-12px_-12px_24px_#ffffff] transition-all"
                 >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                  {/* Mobile Layout - Two Columns */}
+                  <div className="sm:hidden">
+                    <div className="flex gap-3">
+                      {/* Left Column - Image + Product Name */}
+                      <div className="flex-1 min-w-0">
+                        <Link to={`/product/${item._id}`} className="flex gap-3 items-start">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden shadow-inner bg-[#f8faf8] flex-shrink-0">
+                            <img
+                              src={item.images[0]}
+                              alt={item.name}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform"
+                            />
+                          </div>                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-800 hover:text-[#2ecc71] transition-colors line-clamp-2">
+                              {item.name}
+                            </h3>
+                            {item.selectedVariant && (
+                              <p className="text-xs text-[#2ecc71] font-medium mt-0.5">
+                                {item.selectedVariant.label || item.selectedVariant.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-600 mt-1">
+                              ₹{item.price.toLocaleString()} each
+                            </p>
+                          </div>
+                        </Link>
+                      </div>
+
+                      {/* Right Column - Quantity + Price + Actions */}
+                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                        {/* Total Price */}
+                        <p className="text-lg font-bold text-[#2ecc71]">
+                          ₹{(item.price * item.qty).toLocaleString()}
+                        </p>
+                          {/* Quantity Controls */}
+                        <div className="flex items-center bg-[#f8faf8] rounded-xl p-1 shadow-inner">
+                          <button
+                            onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1), item.selectedVariant?.id)}
+                            disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) || item.qty <= 1}
+                            className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (
+                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <FiMinus className="w-3 h-3" />
+                            )}
+                          </button>
+                          <span className="w-8 text-center font-medium text-gray-800 text-sm">{item.qty}</span>
+                          <button
+                            onClick={() => updateQuantity(item._id, item.qty + 1, item.selectedVariant?.id)}
+                            disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
+                            className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (
+                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <FiPlus className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Remove Button */}
+                        <button
+                          onClick={() => removeItem(item._id, item.selectedVariant?.id)}
+                          disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
+                          className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-500 bg-red-50 rounded-xl transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (
+                            <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <FiTrash2 className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop/Tablet Layout - Original */}
+                  <div className="hidden sm:flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                     <Link to={`/product/${item._id}`}>
                       <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden shadow-inner bg-[#f8faf8]">
                         <img
@@ -181,13 +269,17 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                           className="w-full h-full object-cover hover:scale-105 transition-transform"
                         />
                       </div>
-                    </Link>
-                    <div className="flex-grow min-w-0">
+                    </Link>                    <div className="flex-grow min-w-0">
                       <Link to={`/product/${item._id}`}>
                         <h3 className="text-base sm:text-lg font-semibold text-gray-800 hover:text-[#2ecc71] transition-colors overflow-hidden" style={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'}}>
                           {item.name}
                         </h3>
                       </Link>
+                      {item.selectedVariant && (
+                        <p className="text-sm text-[#2ecc71] font-medium mt-1">
+                          {item.selectedVariant.label || item.selectedVariant.name}
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                         <p className="text-sm text-gray-600">
                           ₹{item.price.toLocaleString()} × {item.qty}
@@ -196,14 +288,13 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                           ₹{(item.price * item.qty).toLocaleString()}
                         </p>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">                      <div className="flex items-center bg-[#f8faf8] rounded-xl sm:rounded-2xl p-1 sm:p-2 shadow-inner">
+                    </div>                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">                      <div className="flex items-center bg-[#f8faf8] rounded-xl sm:rounded-2xl p-1 sm:p-2 shadow-inner">
                         <button
-                          onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1))}
-                          disabled={updatingItems.has(item._id) || item.qty <= 1}
+                          onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1), item.selectedVariant?.id)}
+                          disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) || item.qty <= 1}
                           className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg sm:rounded-xl hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {updatingItems.has(item._id) ? (
+                          {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (
                             <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                           ) : (
                             <FiMinus className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -211,11 +302,11 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                         </button>
                         <span className="w-8 sm:w-12 text-center font-medium text-gray-800 text-sm sm:text-base">{item.qty}</span>
                         <button
-                          onClick={() => updateQuantity(item._id, item.qty + 1)}
-                          disabled={updatingItems.has(item._id)}
+                          onClick={() => updateQuantity(item._id, item.qty + 1, item.selectedVariant?.id)}
+                          disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
                           className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg sm:rounded-xl hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {updatingItems.has(item._id) ? (
+                          {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (
                             <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                           ) : (
                             <FiPlus className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -223,11 +314,10 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                         </button>
                       </div>
                       <button
-                        onClick={() => removeItem(item._id)}
-                        disabled={updatingItems.has(item._id)}
-                        className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-red-400 hover:text-red-500 bg-red-50 rounded-xl sm:rounded-2xl transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {updatingItems.has(item._id) ? (
+                        onClick={() => removeItem(item._id, item.selectedVariant?.id)}
+                        disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
+                        className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-red-400 hover:text-red-500 bg-red-50 rounded-xl sm:rounded-2xl transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"                      >
+                        {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (
                           <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <FiTrash2 className="w-3 h-3 sm:w-4 sm:h-4" />

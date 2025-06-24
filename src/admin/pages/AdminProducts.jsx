@@ -12,26 +12,42 @@ import {
   SaveIcon,
   UpdateIcon,
   CloseIcon,
+  CheckIcon,
   ProductsIcon
 } from '../components/AdminIcons';
 import toast from 'react-hot-toast';
 
 const AdminProducts = () => {
   const { primary, mode } = useThemeContext();
-  const { isAdmin } = useAuth();
-  const [products, setProducts] = useState([]);
+  const { isAdmin } = useAuth();  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);  const [expandedProduct, setExpandedProduct] = useState(null);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     category: '',
     stock: '',
-    images: []
+    images: [],
+    hasVariants: false,
+    variants: []
   });
+
+  // Helper function to get cumulative stock for products with variants
+  const getCumulativeStock = (product) => {
+    if (!product.hasVariants || !product.variants) {
+      return product.stock || 0;
+    }
+    return product.variants.reduce((total, variant) => total + (variant.stock || 0), 0);
+  };
+
+  // Helper function to toggle expanded product
+  const toggleExpandedProduct = (productId) => {
+    setExpandedProduct(expandedProduct === productId ? null : productId);
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -40,7 +56,7 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('https://coms-again.onrender.com/api/products/', {
+      const response = await fetch('http://localhost:5001/api/products/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -82,13 +98,15 @@ const AdminProducts = () => {
     try {
       const token = localStorage.getItem('token');
       const formDataToSend = new FormData();
-      
-      // Append all form fields
+        // Append all form fields
       Object.keys(formData).forEach(key => {
         if (key === 'images' && formData.images.length > 0) {
           formData.images.forEach(image => {
             formDataToSend.append('images', image);
           });
+        } else if (key === 'variants') {
+          // Serialize variants array as JSON
+          formDataToSend.append('variants', JSON.stringify(formData.variants));
         } else if (key !== 'images') {
           formDataToSend.append(key, formData[key]);
         }
@@ -96,7 +114,7 @@ const AdminProducts = () => {
 
       let response;
       if (editingProduct) {
-        response = await fetch(`https://coms-again.onrender.com/api/products/${editingProduct._id}`, {
+        response = await fetch(`http://localhost:5001/api/products/${editingProduct._id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -104,7 +122,7 @@ const AdminProducts = () => {
           body: formDataToSend
         });
       } else {
-        response = await fetch('https://coms-again.onrender.com/api/products/', {
+        response = await fetch('http://localhost:5001/api/products/', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -127,7 +145,6 @@ const AdminProducts = () => {
       setSubmitting(false);
     }
   };
-
   const handleEdit = (product) => {
     setEditingProduct(product);
     setFormData({
@@ -136,7 +153,15 @@ const AdminProducts = () => {
       price: product.price || '',
       category: product.category || '',
       stock: product.stock || '',
-      images: []
+      images: [],
+      hasVariants: product.hasVariants || false,
+      variants: product.variants ? product.variants.map(v => ({
+        id: v.id || Date.now().toString(),
+        label: v.label || '',
+        name: v.name || '',        price: v.price || '',
+        stock: v.stock || '',
+        isDefault: v.isDefault || false
+      })) : []
     });
     setShowForm(true);
   };
@@ -144,7 +169,7 @@ const AdminProducts = () => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`https://coms-again.onrender.com/api/products/${productId}`, {
+        const response = await fetch(`http://localhost:5001/api/products/${productId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -165,7 +190,6 @@ const AdminProducts = () => {
       }
     }
   };
-
   const resetForm = () => {
     setShowForm(false);
     setEditingProduct(null);
@@ -175,8 +199,72 @@ const AdminProducts = () => {
       price: '',
       category: '',
       stock: '',
-      images: []
+      images: [],
+      hasVariants: false,
+      variants: []
     });
+  };
+
+  // Variant management functions
+  const handleVariantToggle = (e) => {
+    const hasVariants = e.target.checked;
+    setFormData(prev => ({
+      ...prev,
+      hasVariants,
+      variants: hasVariants ? [{ id: Date.now().toString(), label: '', name: '', price: '', stock: '', isDefault: false }] : []
+    }));
+  };
+
+  const addVariant = () => {
+    setFormData(prev => ({
+      ...prev,
+      variants: [...prev.variants, { 
+        id: Date.now().toString(), 
+        label: '', 
+        name: '', 
+        price: '', 
+        stock: '', 
+        isDefault: false 
+      }]
+    }));
+  };
+
+  const removeVariant = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      variants: prev.variants.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateVariant = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      variants: prev.variants.map((variant, i) => 
+        i === index ? { ...variant, [field]: value } : variant
+      )
+    }));
+  };
+
+  const setDefaultVariant = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      variants: prev.variants.map((variant, i) => 
+        ({ ...variant, isDefault: i === index })
+      )
+    }));
+  };
+
+  // Helper function to calculate total stock
+  const getTotalStock = (product) => {
+    if (product.hasVariants && product.variants?.length > 0) {
+      return product.variants.reduce((total, variant) => total + (variant.stock || 0), 0);
+    }
+    return product.stock || 0;
+  };
+
+  // Toggle product details
+  const toggleProductDetails = (productId) => {
+    setExpandedProduct(expandedProduct === productId ? null : productId);
   };
 
   if (!isAdmin) {
@@ -302,6 +390,120 @@ const AdminProducts = () => {
                     </p>
                   )}
                 </div>
+                {/* Variants Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="block text-sm font-semibold mb-2 lg:mb-3 text-gray-700 flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.hasVariants}
+                        onChange={handleVariantToggle}
+                        className="form-checkbox h-5 w-5 text-green-600 rounded-full border-gray-300 focus:ring-2 focus:ring-green-500/50"
+                      />
+                      <span className="ml-2">Enable Variants</span>
+                    </label>
+                    {formData.hasVariants && (
+                      <button
+                        type="button"
+                        onClick={addVariant}
+                        className="neumorphic-button-small px-4 py-2 bg-green-500 text-white rounded-xl text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center"
+                      >
+                        <AddIcon className="w-4 h-4 mr-1" />
+                        Add Variant
+                      </button>
+                    )}
+                  </div>
+                  {formData.hasVariants && formData.variants.length > 0 && (
+                    <div className="space-y-4">
+                      {formData.variants.map((variant, index) => (
+                        <div key={variant.id} className="p-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-gray-800 text-sm truncate">
+                              Variant {index + 1}
+                            </h3>
+                            <button
+                              onClick={() => removeVariant(index)}
+                              className="text-red-500 hover:text-red-700 transition-colors"
+                              type="button"
+                            >
+                              <DeleteIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold mb-2 text-gray-700">Variant Name</label>
+                              <input
+                                type="text"
+                                value={variant.name}
+                                onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                                className="neumorphic-input w-full p-3 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold mb-2 text-gray-700">Variant Label</label>
+                              <input
+                                type="text"
+                                value={variant.label}
+                                onChange={(e) => updateVariant(index, 'label', e.target.value)}
+                                className="neumorphic-input w-full p-3 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold mb-2 text-gray-700">Price (₹)</label>
+                              <input
+                                type="number"
+                                value={variant.price}
+                                onChange={(e) => updateVariant(index, 'price', e.target.value)}
+                                className="neumorphic-input w-full p-3 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                required
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold mb-2 text-gray-700">Stock</label>
+                              <input
+                                type="number"
+                                value={variant.stock}
+                                onChange={(e) => updateVariant(index, 'stock', e.target.value)}
+                                className="neumorphic-input w-full p-3 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                required
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <label className="block text-xs font-semibold mb-2 text-gray-700">Set as Default Variant</label>
+                            <div className="flex gap-2">
+                              {formData.variants.map((_, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => setDefaultVariant(i)}
+                                  className={classNames(
+                                    'flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 flex items-center justify-center',
+                                    i === index ? 'bg-green-500 text-white shadow-soft' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                  )}
+                                  type="button"
+                                >
+                                  {i === index ? (
+                                    <>
+                                      <CheckIcon className="w-4 h-4 mr-2" />
+                                      Default
+                                    </>
+                                  ) : (
+                                    'Set as Default'
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
                   <button
                     type="submit"
@@ -338,113 +540,239 @@ const AdminProducts = () => {
               <p className="text-gray-600 text-lg">Loading products...</p>
             </div>
           ) : (
-            <div className="neumorphic-card rounded-3xl bg-white/60 backdrop-blur-sm border border-white/20 overflow-hidden">
-              {/* Desktop Table View */}
+            <div className="neumorphic-card rounded-3xl bg-white/60 backdrop-blur-sm border border-white/20 overflow-hidden">              {/* Desktop Table View */}
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
-                    <tr>
-                      <th className="text-left p-6 font-semibold text-gray-700">Image</th>
-                      <th className="text-left p-6 font-semibold text-gray-700">Name</th>
-                      <th className="text-left p-6 font-semibold text-gray-700">Category</th>
-                      <th className="text-left p-6 font-semibold text-gray-700">Price</th>
-                      <th className="text-left p-6 font-semibold text-gray-700">Stock</th>
-                      <th className="text-left p-6 font-semibold text-gray-700">Actions</th>
+                    <tr>                      <th className="text-left p-3 font-semibold text-gray-700 text-sm">Product</th>
+                      <th className="text-left p-3 font-semibold text-gray-700 text-sm">Category</th>
+                      <th className="text-left p-3 font-semibold text-gray-700 text-sm">Price</th>
+                      <th className="text-left p-3 font-semibold text-gray-700 text-sm">Variants</th>
+                      <th className="text-left p-3 font-semibold text-gray-700 text-sm">Total Stock</th>
+                      <th className="text-left p-3 font-semibold text-gray-700 text-sm w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {products.map((product) => (
-                      <tr key={product._id} className="border-b border-gray-100/50 hover:bg-white/30 transition-colors">
-                        <td className="p-6">
-                          {product.images && product.images[0] && (
-                            <img
-                              src={product.images[0]}
-                              alt={product.name}
-                              className="w-20 h-20 object-cover rounded-2xl shadow-soft"
-                            />
-                          )}
-                        </td>
-                        <td className="p-6 font-semibold text-gray-800">{product.name}</td>
-                        <td className="p-6 text-gray-600">{product.category}</td>
-                        <td className="p-6 font-semibold text-green-600">₹{product.price}</td>
-                        <td className="p-6">
-                          <span className={classNames(
-                            'px-3 py-1 rounded-full text-sm font-medium',
-                            product.stock > 10 ? 'bg-green-100 text-green-700' :
-                            product.stock > 0 ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          )}>
-                            {product.stock} in stock
-                          </span>
-                        </td>
-                        <td className="p-6">
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => handleEdit(product)}
-                              className="neumorphic-button-small px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center"
-                            >
-                              <EditIcon className="w-4 h-4 mr-1" />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product._id)}
-                              className="neumorphic-button-small px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center"
-                            >
-                              <DeleteIcon className="w-4 h-4 mr-1" />
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                      <React.Fragment key={product._id}>                        <tr 
+                          className="border-b border-gray-100/50 hover:bg-white/30 transition-colors cursor-pointer"
+                          onClick={() => toggleExpandedProduct(product._id)}
+                        >
+                          <td className="p-3">
+                            <div className="flex items-center space-x-3">
+                              {product.images && product.images[0] && (
+                                <img
+                                  src={product.images[0]}
+                                  alt={product.name}
+                                  className="w-12 h-12 object-cover rounded-lg shadow-soft flex-shrink-0"
+                                />
+                              )}                              <div className="min-w-0">
+                                <div className="font-semibold text-gray-800 text-sm truncate">{product.name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-sm text-gray-600">{product.category}</td>
+                          <td className="p-3 font-semibold text-green-600 text-sm">
+                            {product.hasVariants ? (
+                              <span className="text-xs text-gray-500">Multiple</span>
+                            ) : (
+                              `₹${product.price}`
+                            )}
+                          </td>
+                          <td className="p-3 text-sm">
+                            {product.hasVariants ? (
+                              <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-full">
+                                {product.variants?.length || 0} variants
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-500">No variants</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className={classNames(
+                              'px-2 py-1 rounded-full text-xs font-medium',
+                              getCumulativeStock(product) > 10 ? 'bg-green-100 text-green-700' :
+                              getCumulativeStock(product) > 0 ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-red-100 text-red-700'
+                            )}>
+                              {getCumulativeStock(product)} total
+                            </span>
+                          </td>
+                          <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleEdit(product)}
+                                className="neumorphic-button-small p-2 bg-blue-500 text-white rounded-lg hover:shadow-soft transition-all duration-300 flex items-center justify-center"
+                                title="Edit Product"
+                              >
+                                <EditIcon className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(product._id)}
+                                className="neumorphic-button-small p-2 bg-red-500 text-white rounded-lg hover:shadow-soft transition-all duration-300 flex items-center justify-center"
+                                title="Delete Product"
+                              >
+                                <DeleteIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>                        {/* Expandable Details Row */}
+                        {expandedProduct === product._id && (
+                          <tr className="bg-white/80">
+                            <td colSpan="6" className="p-4 border-l-4 border-green-400">
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-semibold text-gray-800">Product Details</h4>
+                                  <button
+                                    onClick={() => setExpandedProduct(null)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                  >
+                                    <CloseIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <h5 className="font-medium text-gray-700 mb-2">Basic Information</h5>
+                                    <div className="space-y-2 text-sm">
+                                      <div><span className="text-gray-500">Description:</span> {product.description}</div>
+                                      {!product.hasVariants && (
+                                        <>
+                                          <div><span className="text-gray-500">Price:</span> ₹{product.price}</div>
+                                          <div><span className="text-gray-500">Stock:</span> {product.stock}</div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {product.hasVariants && product.variants && (
+                                    <div>
+                                      <h5 className="font-medium text-gray-700 mb-2">Variants ({product.variants.length})</h5>
+                                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                                        {product.variants.map((variant, idx) => (
+                                          <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                                            <div className="flex items-center justify-between">
+                                              <div>
+                                                <span className="font-medium text-sm">{variant.label}</span>
+                                                {variant.isDefault && (
+                                                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                                                    Default
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="text-right">
+                                                <div className="font-semibold text-green-600 text-sm">₹{variant.price}</div>
+                                                <div className="text-xs text-gray-500">{variant.stock} stock</div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Mobile Card View */}
+              </div>              {/* Mobile Card View */}
               <div className="lg:hidden">
-                <div className="space-y-4 p-4">
+                <div className="space-y-3 p-4">
                   {products.map((product) => (
                     <div key={product._id} className="neumorphic-card p-4 rounded-2xl bg-white/40 backdrop-blur-sm border border-white/20">
-                      <div className="flex items-start space-x-4 mb-3">
+                      <div className="flex items-start space-x-3 mb-3">
                         {product.images && product.images[0] && (
                           <img
                             src={product.images[0]}
                             alt={product.name}
-                            className="w-16 h-16 object-cover rounded-xl shadow-soft flex-shrink-0"
+                            className="w-12 h-12 object-cover rounded-lg shadow-soft flex-shrink-0"
                           />
                         )}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-gray-800 text-sm truncate">{product.name}</h3>
                           <p className="text-xs text-gray-600 mb-1">{product.category}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-green-600 text-lg">₹{product.price}</span>
-                            <span className={classNames(
-                              'px-2 py-1 rounded-full text-xs font-medium',
-                              product.stock > 10 ? 'bg-green-100 text-green-700' :
-                              product.stock > 0 ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-red-100 text-red-700'
-                            )}>
-                              {product.stock} in stock
-                            </span>
+                          
+                          <div className="flex items-center justify-between mb-2">
+                            {product.hasVariants ? (
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-full">
+                                  {product.variants?.length || 0} variants
+                                </span>
+                                <span className={classNames(
+                                  'px-2 py-1 rounded-full text-xs font-medium',
+                                  getCumulativeStock(product) > 10 ? 'bg-green-100 text-green-700' :
+                                  getCumulativeStock(product) > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-red-100 text-red-700'
+                                )}>
+                                  {getCumulativeStock(product)} total
+                                </span>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="font-semibold text-green-600 text-sm">₹{product.price}</span>
+                                <span className={classNames(
+                                  'px-2 py-1 rounded-full text-xs font-medium',
+                                  product.stock > 10 ? 'bg-green-100 text-green-700' :
+                                  product.stock > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-red-100 text-red-700'
+                                )}>
+                                  {product.stock} stock
+                                </span>
+                              </>
+                            )}
+                          </div>                            {/* Expand/Collapse Button */}
+                          {product.hasVariants && (
+                            <button
+                              onClick={() => toggleExpandedProduct(product._id)}
+                              className="text-xs text-green-600 hover:text-green-800 font-medium mt-1"
+                            >
+                              {expandedProduct === product._id ? 'Hide variants' : 'Show variants'}
+                            </button>
+                          )}
+                        </div>
+                      </div>                      {/* Expandable Variants Section for Mobile */}
+                      {expandedProduct === product._id && product.hasVariants && product.variants && (
+                        <div className="mb-3 pt-3 border-t border-gray-200">
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {product.variants.map((variant, idx) => (
+                              <div key={idx} className="bg-gray-50 p-2 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <span className="font-medium text-xs">{variant.label}</span>
+                                    {variant.isDefault && (
+                                      <span className="ml-1 px-1 py-0.5 bg-green-100 text-green-700 text-xs rounded">
+                                        Default
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-semibold text-green-600 text-xs">₹{variant.price}</div>
+                                    <div className="text-xs text-gray-500">{variant.stock} stock</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      </div>
+                      )}
                       
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEdit(product)}
-                          className="flex-1 neumorphic-button-small px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center justify-center"
+                          className="flex-1 neumorphic-button-small px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center justify-center"
                         >
-                          <EditIcon className="w-4 h-4 mr-1" />
+                          <EditIcon className="w-3 h-3 mr-1" />
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(product._id)}
-                          className="flex-1 neumorphic-button-small px-3 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center justify-center"
+                          className="flex-1 neumorphic-button-small px-3 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center justify-center"
                         >
-                          <DeleteIcon className="w-4 h-4 mr-1" />
-                          Delete
+                          <DeleteIcon className="w-3 h-3 mr-1" />                          Delete
                         </button>
                       </div>
                     </div>
@@ -498,4 +826,4 @@ const AdminProducts = () => {
   );
 };
 
-export default AdminProducts; 
+export default AdminProducts;

@@ -39,7 +39,7 @@ const OrderDetail = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`https://coms-again.onrender.com/api/products/orders/${orderId}`, {
+      const response = await fetch(`http://localhost:5001/api/products/orders/${orderId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -553,8 +553,13 @@ const OrderDetail = () => {
                         {item.name || 'Product'}
                         <FiArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
                       </h4>
+                      {item.variantName && (
+                        <p className="text-sm text-emerald-600 font-medium">
+                          Variant: {item.variantName}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-600">
-                        Quantity: {item.qty || 1} × ₹{item.price || 0}
+                        Quantity: {item.qty || 1} × ₹{item.variantPrice || item.price || 0}
                       </p>
                       <p className="text-xs text-gray-500">
                         Product ID: {item.id || item.productId || 'N/A'}
@@ -562,9 +567,8 @@ const OrderDetail = () => {
                       <p className="text-xs text-emerald-600 mt-1 font-medium">
                         Click to view product details
                       </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-800">₹{((item.qty || 1) * (item.price || 0)).toFixed(2)}</p>
+                    </div>                    <div className="text-right">
+                      <p className="font-bold text-gray-800">₹{((item.qty || 1) * (item.variantPrice || item.price || 0)).toFixed(2)}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -587,10 +591,10 @@ const OrderDetail = () => {
                 <FiDollarSign className="w-5 h-5" />
                 Payment Summary
               </h3>              <div className="space-y-3">
-                {(() => {
-                  // Calculate subtotal from items
+                {(() => {                  // Calculate subtotal from items
                   const itemsSubtotal = order.items?.reduce((sum, item) => {
-                    return sum + ((item.qty || 1) * (item.price || 0));
+                    const itemPrice = item.variantPrice || item.price || 0;
+                    return sum + ((item.qty || 1) * itemPrice);
                   }, 0) || 0;
                   
                   // Calculate shipping (₹100 for orders < ₹500, free otherwise)
@@ -655,7 +659,54 @@ const OrderDetail = () => {
                   </div>
                 </div>
               </div>
-            </div>            {/* Shipping Address */}
+            </div>
+
+            {/* Delivery Verification Code - Only show when order is shipped */}
+            {order.status?.toLowerCase() === 'shipped' && order.deliveryOtp?.code && (
+              <motion.div 
+                className="bg-gradient-to-r from-blue-50 to-indigo-50 backdrop-blur-sm rounded-3xl p-6 shadow-lg border-2 border-blue-200"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <h3 className="text-lg font-bold text-blue-800 mb-4 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <FiCheck className="w-4 h-4 text-white" />
+                  </div>
+                  🔒 Delivery Verification Code
+                </h3>
+                <div className="bg-white/80 rounded-2xl p-4 border border-blue-200">
+                  <div className="text-center">
+                    <p className="text-sm text-blue-600 mb-3">
+                      Share this code with the delivery person to confirm delivery
+                    </p>
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                      <div className="text-3xl font-mono font-bold text-blue-700 bg-blue-50 px-6 py-3 rounded-xl border-2 border-blue-200 tracking-wider">
+                        {order.deliveryOtp.code}
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(order.deliveryOtp.code);
+                          // You can add a toast notification here
+                        }}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                        title="Copy to clipboard"
+                      >
+                        <FiDownload className="w-4 h-4" />
+                        Copy
+                      </button>
+                    </div>
+                    <div className="text-xs text-blue-500 space-y-1">
+                      <p>✓ Keep this code safe and share only with the delivery person</p>
+                      <p>✓ This code is required to mark your order as delivered</p>
+                      <p>✓ Do not share this code with anyone else</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Shipping Address */}
             {(order.shippingAddress || order.shipping) && (
               <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-lg border border-white/20">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-3">

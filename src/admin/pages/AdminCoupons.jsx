@@ -41,7 +41,7 @@ const AdminCoupons = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('https://coms-again.onrender.com/api/coupons/', {
+      const response = await fetch('http://localhost:5001/api/coupons/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -75,7 +75,7 @@ const AdminCoupons = () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://coms-again.onrender.com/api/coupons/', {
+      const response = await fetch('http://localhost:5001/api/coupons/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -122,7 +122,7 @@ const AdminCoupons = () => {
     if (window.confirm('Are you sure you want to delete this coupon?')) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`https://coms-again.onrender.com/api/coupons/${couponId}`, {
+        const response = await fetch(`http://localhost:5001/api/coupons/${couponId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -381,15 +381,15 @@ const AdminCoupons = () => {
             </div>
           )}
 
-          {/* Coupons List */}
-          {loading ? (
+          {/* Coupons List */}          {loading ? (
             <div className="text-center py-12">
               <LoadingIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <p className="text-gray-600 text-lg">Loading coupons...</p>
             </div>
           ) : (
             <div className="neumorphic-card rounded-3xl bg-white/60 backdrop-blur-sm border border-white/20 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
                     <tr>
@@ -408,64 +408,64 @@ const AdminCoupons = () => {
                       
                       return (
                         <tr key={coupon._id} className="border-b border-gray-100/50 hover:bg-white/30 transition-colors">
-                          <td className="p-3 md:p-6">
+                          <td className="p-6">
                             <div className="flex items-center">
-                              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-gradient-to-br from-purple-400 to-violet-500 shadow-soft flex items-center justify-center mr-2 md:mr-3">
-                                <TicketIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-400 to-violet-500 shadow-soft flex items-center justify-center mr-3">
+                                <TicketIcon className="w-5 h-5 text-white" />
                               </div>
                               <div>
-                                <div className="font-mono font-semibold text-gray-800 text-sm md:text-base">{coupon.code}</div>
-                                <div className="text-xs md:text-sm text-gray-500">Min: ₹{displayData.minOrder}</div>
+                                <div className="font-mono font-semibold text-gray-800">{coupon.code}</div>
+                                <div className="text-sm text-gray-500">Min: ₹{displayData.minOrder}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 md:p-6">
+                          <td className="p-6">
                             <div className="flex items-center">
                               {coupon.type === 'percent' ? (
-                                <PercentIcon className="w-3 h-3 md:w-4 md:h-4 text-blue-500 mr-1 md:mr-2" />
+                                <PercentIcon className="w-4 h-4 text-blue-500 mr-2" />
                               ) : (
-                                <MoneyIcon className="w-3 h-3 md:w-4 md:h-4 text-green-500 mr-1 md:mr-2" />
+                                <MoneyIcon className="w-4 h-4 text-green-500 mr-2" />
                               )}
-                              <span className="capitalize text-gray-700 text-xs md:text-sm">{coupon.type}</span>
+                              <span className="capitalize text-gray-700">{coupon.type}</span>
                             </div>
                           </td>
-                          <td className="p-3 md:p-6">
-                            <div className="font-semibold text-green-600 text-sm md:text-base">
+                          <td className="p-6">
+                            <div className="font-semibold text-green-600">
                               {coupon.type === 'percent' ? `${coupon.amount}%` : `₹${coupon.amount}`}
                             </div>
                             {coupon.maxDiscount && (
-                              <div className="text-xs md:text-sm text-gray-500">Max: ₹{coupon.maxDiscount}</div>
+                              <div className="text-sm text-gray-500">Max: ₹{coupon.maxDiscount}</div>
                             )}
                           </td>
-                          <td className="p-3 md:p-6">
-                            <div className="text-xs md:text-sm text-gray-700">
+                          <td className="p-6">
+                            <div className="text-sm text-gray-700">
                               {displayData.usedCount} / {displayData.maxUses}
                             </div>
                           </td>
-                          <td className="p-3 md:p-6">
+                          <td className="p-6">
                             <div className="flex items-center">
-                              <CalendarIcon className="w-3 h-3 md:w-4 md:h-4 text-gray-400 mr-1 md:mr-2" />
-                              <div className="text-xs md:text-sm text-gray-700">
-                                <div className="hidden md:block">Created: {formatDate(displayData.createdAt)}</div>
+                              <CalendarIcon className="w-4 h-4 text-gray-400 mr-2" />
+                              <div className="text-sm text-gray-700">
+                                <div>Created: {formatDate(displayData.createdAt)}</div>
                                 <div>Expires: {formatDate(displayData.expiry)}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 md:p-6">
+                          <td className="p-6">
                             <span className={classNames(
-                              'px-2 md:px-3 py-1 rounded-full text-xs font-medium',
+                              'px-3 py-1 rounded-full text-xs font-medium',
                               statusInfo.color
                             )}>
                               {statusInfo.status}
                             </span>
                           </td>
-                          <td className="p-3 md:p-6">
+                          <td className="p-6">
                             <button
                               onClick={() => handleDelete(coupon._id)}
-                              className="neumorphic-button-small px-2 md:px-4 py-1 md:py-2 bg-red-500 text-white rounded-lg md:rounded-xl text-xs md:text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center"
+                              className="neumorphic-button-small px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center"
                             >
-                              <DeleteIcon className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                              <span className="hidden md:inline">Delete</span>
+                              <DeleteIcon className="w-4 h-4 mr-1" />
+                              Delete
                             </button>
                           </td>
                         </tr>
@@ -474,6 +474,86 @@ const AdminCoupons = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4 p-4">
+                {coupons.map((coupon) => {
+                  const displayData = getDisplayValues(coupon);
+                  const statusInfo = getCouponStatus(coupon);
+                  
+                  return (
+                    <div key={coupon._id} className="bg-white/70 rounded-2xl p-4 border border-white/30 shadow-lg">
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 shadow-soft flex items-center justify-center mr-2">
+                            <TicketIcon className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <div className="font-mono font-semibold text-gray-800 text-sm">{coupon.code}</div>
+                            <div className="text-xs text-gray-500">Min: ₹{displayData.minOrder}</div>
+                          </div>
+                        </div>
+                        <span className={classNames(
+                          'px-2 py-1 rounded-full text-xs font-medium',
+                          statusInfo.color
+                        )}>
+                          {statusInfo.status}
+                        </span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Type</div>
+                          <div className="flex items-center text-sm">
+                            {coupon.type === 'percent' ? (
+                              <PercentIcon className="w-3 h-3 text-blue-500 mr-1" />
+                            ) : (
+                              <MoneyIcon className="w-3 h-3 text-green-500 mr-1" />
+                            )}
+                            <span className="capitalize text-gray-700">{coupon.type}</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Discount</div>
+                          <div className="font-semibold text-green-600 text-sm">
+                            {coupon.type === 'percent' ? `${coupon.amount}%` : `₹${coupon.amount}`}
+                          </div>
+                          {coupon.maxDiscount && (
+                            <div className="text-xs text-gray-500">Max: ₹{coupon.maxDiscount}</div>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Usage</div>
+                          <div className="text-sm text-gray-700">
+                            {displayData.usedCount} / {displayData.maxUses}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Expires</div>
+                          <div className="text-xs text-gray-700">
+                            {formatDate(displayData.expiry)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <button
+                        onClick={() => handleDelete(coupon._id)}
+                        className="w-full neumorphic-button-small px-3 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:shadow-soft transition-all duration-300 flex items-center justify-center"
+                      >
+                        <DeleteIcon className="w-4 h-4 mr-1" />
+                        Delete
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
               {coupons.length === 0 && (
                 <div className="text-center py-16">
                   <EmptyIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />

@@ -55,7 +55,7 @@ const Profile = () => {
   const fetchRecentOrders = async () => {
     setOrdersLoading(true);
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/orders/user', {
+      const response = await fetch('http://localhost:5001/api/products/orders/user', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -77,7 +77,7 @@ const Profile = () => {
 
   const fetchUserProfile = async () => {
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/auth/me', {
+      const response = await fetch('http://localhost:5001/api/auth/me', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -128,7 +128,7 @@ const Profile = () => {
     setSuccess(null);
 
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/auth/me', {
+      const response = await fetch('http://localhost:5001/api/auth/me', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ const Profile = () => {
     setSuccess(null);
 
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/auth/address/add', {
+      const response = await fetch('http://localhost:5001/api/auth/address/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,24 +184,22 @@ const Profile = () => {
       setAddressLoading(false);
     }
   };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex justify-center items-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white flex justify-center items-center">
         <motion.div 
           className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl"
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
+          <div className="w-8 h-8 border-4 border-[#2ecc71] border-t-transparent rounded-full"></div>
         </motion.div>
       </div>
     );
   }
-
   if (!profileData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex justify-center items-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white flex justify-center items-center">
         <motion.div 
           className="text-center bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -215,7 +213,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] to-white py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <motion.div 
@@ -248,25 +246,24 @@ const Profile = () => {
             <FiCheckCircle className="w-5 h-5 flex-shrink-0" />
             {success}
           </motion.div>
-        )}        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        )}        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
           {/* Profile Information */}
           <motion.div 
-            className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-lg border border-white/20"
+            className="bg-white/80 backdrop-blur-sm rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-lg border border-white/20"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center">
-                  <FiUser className="w-6 h-6 text-white" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3">
+              <div className="flex items-center gap-3">                <div className="w-10 h-10 md:w-12 md:h-12 bg-[#2ecc71] rounded-xl md:rounded-2xl flex items-center justify-center">
+                  <FiUser className="w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">Personal Information</h2>
               </div>
               {!isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#2ecc71] text-white rounded-lg md:rounded-xl hover:bg-[#27ae60] transition-all duration-200 shadow-lg text-sm md:text-base"
                 >
                   <FiEdit3 className="w-4 h-4" />
                   Edit
@@ -299,9 +296,8 @@ const Profile = () => {
                   <input
                     type="text"
                     name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    value={formData.name}                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ecc71] focus:border-transparent transition-all duration-200"
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -316,7 +312,7 @@ const Profile = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ecc71] focus:border-transparent transition-all duration-200"
                     placeholder="Enter your phone number"
                   />
                 </div>
@@ -325,7 +321,7 @@ const Profile = () => {
                   <button
                     type="submit"
                     disabled={updateLoading}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#2ecc71] text-white rounded-xl hover:bg-[#27ae60] transition-all duration-200 shadow-lg disabled:opacity-50"
                   >
                     <FiSave className="w-4 h-4" />
                     {updateLoading ? 'Saving...' : 'Save Changes'}
@@ -357,14 +353,23 @@ const Profile = () => {
                     {profileData?.username}
                   </div>
                 </div>
-                
-                <div>
+                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     <FiUser className="w-4 h-4" />
                     Name
                   </label>
                   <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800">
                     {profileData?.name || 'Not set'}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <FiMail className="w-4 h-4" />
+                    Email
+                  </label>
+                  <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800">
+                    {profileData?.email || 'Not set'}
                   </div>
                 </div>
                 

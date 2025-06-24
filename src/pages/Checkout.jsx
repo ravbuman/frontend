@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -32,6 +32,7 @@ import {
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
@@ -79,26 +80,75 @@ const Checkout = () => {
 
   useEffect(() => {
     calculateTotals();
-  }, [cart, appliedCoupon]);
-  const fetchCheckoutData = async () => {
+  }, [cart, appliedCoupon]);  const fetchCheckoutData = async () => {
     setLoading(true);
     try {
-      // Fetch cart items
-      const cartResponse = await fetch('https://coms-again.onrender.com/api/products/cart/me', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // Check if this is a direct product purchase from URL parameters
+      const urlParams = new URLSearchParams(location.search);
+      const productId = urlParams.get('product');
+      const quantity = parseInt(urlParams.get('quantity')) || 1;
+      const variantId = urlParams.get('variantId');
 
-      if (cartResponse.ok) {
-        const cartData = await cartResponse.json();
-        console.log('Cart Data:', cartData);
-        setCart(cartData.cart || []);
+      if (productId) {
+        // Direct product purchase - fetch the specific product
+        try {
+          const productResponse = await fetch(`http://localhost:5001/api/products/${productId}`);
+          if (productResponse.ok) {
+            const productData = await productResponse.json();
+            const product = productData.product;
+            
+            // Handle variant selection
+            let selectedVariant = null;
+            let itemPrice = product.price;
+            let itemName = product.name;
+            
+            if (variantId && product.hasVariants && product.variants) {
+              selectedVariant = product.variants.find(v => v.id === variantId);
+              if (selectedVariant) {
+                itemPrice = selectedVariant.price;
+                itemName = `${product.name} - ${selectedVariant.label}`;
+              }
+            }
+            
+            // Create cart item for direct purchase
+            const directCartItem = {
+              _id: productId,
+              name: itemName,
+              price: itemPrice,
+              qty: quantity,
+              image: product.images?.[0] || '/placeholder.png',
+              selectedVariant: selectedVariant,
+              isDirect: true // Flag to indicate direct purchase
+            };
+            
+            setCart([directCartItem]);
+          } else {
+            throw new Error('Product not found');
+          }
+        } catch (error) {
+          console.error('Error fetching product for direct purchase:', error);
+          alert('Product not found. Redirecting to products page.');
+          navigate('/products');
+          return;
+        }
+      } else {
+        // Regular cart checkout - fetch cart items
+        const cartResponse = await fetch('http://localhost:5001/api/products/cart/me', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (cartResponse.ok) {
+          const cartData = await cartResponse.json();
+          console.log('Cart Data:', cartData);
+          setCart(cartData.cart || []);
+        }
       }
 
       // Fetch user profile to get addresses
       try {
-        const userResponse = await fetch('https://coms-again.onrender.com/api/auth/me', {
+        const userResponse = await fetch('http://localhost:5001/api/auth/me', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -155,7 +205,7 @@ const Checkout = () => {
     
     setCouponLoading(true);
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/coupons/validate', {
+      const response = await fetch('http://localhost:5001/api/coupons/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +249,7 @@ const Checkout = () => {
     if (newQty < 1) return;
     
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/cart/update', {
+      const response = await fetch('http://localhost:5001/api/products/cart/update', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -226,7 +276,7 @@ const Checkout = () => {
 
   const removeFromCart = async (itemId) => {
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/cart/remove', {
+      const response = await fetch('http://localhost:5001/api/products/cart/remove', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +299,7 @@ const Checkout = () => {
   const addAddress = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/auth/address/add', {
+      const response = await fetch('http://localhost:5001/api/auth/address/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -334,14 +384,18 @@ const Checkout = () => {
       try {
       // Simulate processing delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const orderData = {
-        items: cart.map(item => ({
+        const orderData = {        items: cart.map(item => ({
           id: item._id,
           name: item.name,
-          price: item.price,
+          price: item.selectedVariant ? item.selectedVariant.price : item.price,
           qty: item.qty || 1,
-          image: item.images && item.images[0] ? item.images[0] : null
+          image: item.image || (item.images && item.images[0] ? item.images[0] : null),
+          // Variant information
+          hasVariant: !!item.selectedVariant,
+          variantId: item.selectedVariant?.id || null,
+          variantName: item.selectedVariant?.label || item.selectedVariant?.name || null,
+          variantPrice: item.selectedVariant?.price || null,
+          isDirect: item.isDirect || false
         })),
         totalAmount: total,
         shipping: {
@@ -360,7 +414,7 @@ const Checkout = () => {
 
       console.log('Order Data:', orderData); // Debug log
 
-      const response = await fetch('https://coms-again.onrender.com/api/products/orders', {
+      const response = await fetch('http://localhost:5001/api/products/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -377,28 +431,31 @@ const Checkout = () => {
           success: true,
           orderId: data.order._id,
           message: 'Your order has been placed successfully!'
-        });          // Clear cart after successful order
-        console.log('Order placed successfully, attempting to clear cart...');
-        try {
-          const clearCartResponse = await fetch('https://coms-again.onrender.com/api/products/cart/clear', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+        });        // Clear cart after successful order (only for regular cart purchases, not direct purchases)
+        const hasDirectPurchase = cart.some(item => item.isDirect);
+        if (!hasDirectPurchase) {
+          console.log('Order placed successfully, attempting to clear cart...');
+          try {
+            const clearCartResponse = await fetch('http://localhost:5001/api/products/cart/clear', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            console.log('Clear cart response status:', clearCartResponse.status);
+            
+            if (clearCartResponse.ok) {
+              const clearData = await clearCartResponse.json();
+              console.log('Cart cleared successfully after order placement:', clearData);
+            } else {
+              const errorData = await clearCartResponse.text();
+              console.warn('Failed to clear cart after order placement:', errorData);
             }
-          });
-          
-          console.log('Clear cart response status:', clearCartResponse.status);
-          
-          if (clearCartResponse.ok) {
-            const clearData = await clearCartResponse.json();
-            console.log('Cart cleared successfully after order placement:', clearData);
-          } else {
-            const errorData = await clearCartResponse.text();
-            console.warn('Failed to clear cart after order placement:', errorData);
+          } catch (error) {
+            console.error('Error clearing cart after order placement:', error);
           }
-        } catch (error) {
-          console.error('Error clearing cart after order placement:', error);
         }
         await new Promise(resolve => setTimeout(resolve, 1000)); // UX delay
         setTimeout(() => {
@@ -539,11 +596,10 @@ const Checkout = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                    >
-                      <div className="w-16 h-16 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center overflow-hidden">
-                        {item.images && item.images[0] ? (
+                    >                      <div className="w-16 h-16 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center overflow-hidden">
+                        {item.image || (item.images && item.images[0]) ? (
                           <img 
-                            src={item.images[0]} 
+                            src={item.image || item.images[0]} 
                             alt={item.name || 'Product'}
                             className="w-full h-full object-cover rounded-xl"
                           />
@@ -555,37 +611,51 @@ const Checkout = () => {
                         <h4 className="font-semibold text-gray-800">
                           {item.name || 'Product'}
                         </h4>
+                        {item.selectedVariant && (
+                          <p className="text-xs text-emerald-600 font-medium">
+                            Variant: {item.selectedVariant.label || item.selectedVariant.name}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-600">
                           ₹{item.price || 0} each
                         </p>
                       </div>
-                      
-                      {/* Quantity Controls */}
+                        {/* Quantity Controls */}
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-white rounded-lg p-1">
-                          <button
-                            onClick={() => updateCartQuantity(item._id, (item.qty || 1) - 1)}
-                            disabled={item.qty <= 1}
-                            className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <FiMinus className="w-4 h-4" />
-                          </button>
-                          <span className="w-8 text-center font-medium">{item.qty || 1}</span>
-                          <button
-                            onClick={() => updateCartQuantity(item._id, (item.qty || 1) + 1)}
-                            disabled={item.qty >= item.stock}
-                            className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <FiPlus className="w-4 h-4" />
-                          </button>
-                        </div>
+                        {!item.isDirect && (
+                          <div className="flex items-center gap-2 bg-white rounded-lg p-1">
+                            <button
+                              onClick={() => updateCartQuantity(item._id, (item.qty || 1) - 1)}
+                              disabled={item.qty <= 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FiMinus className="w-4 h-4" />
+                            </button>
+                            <span className="w-8 text-center font-medium">{item.qty || 1}</span>
+                            <button
+                              onClick={() => updateCartQuantity(item._id, (item.qty || 1) + 1)}
+                              disabled={item.qty >= (item.selectedVariant?.stock || item.stock)}
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FiPlus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                         
-                        <button
-                          onClick={() => removeFromCart(item._id)}
-                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <FiTrash2 className="w-4 h-4" />
-                        </button>
+                        {item.isDirect ? (
+                          <div className="text-sm text-gray-600 font-medium">
+                            Qty: {item.qty || 1}
+                          </div>
+                        ) : null}
+                        
+                        {!item.isDirect && (
+                          <button
+                            onClick={() => removeFromCart(item._id)}
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <FiTrash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                       
                       <div className="text-right">
@@ -1166,13 +1236,12 @@ const Checkout = () => {
                 <div className="space-y-6">                  {/* Items */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-3">Items ({cart.length})</h3>
-                    <div className="space-y-3">
-                      {cart.map((item, index) => (
+                    <div className="space-y-3">                      {cart.map((item, index) => (
                         <div key={item._id || index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                           <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
-                            {item.images && item.images[0] ? (
+                            {item.image || (item.images && item.images[0]) ? (
                               <img 
-                                src={item.images[0]} 
+                                src={item.image || item.images[0]} 
                                 alt={item.name || 'Product'}
                                 className="w-full h-full object-cover rounded-lg"
                               />
@@ -1181,12 +1250,15 @@ const Checkout = () => {
                             )}
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-800 text-sm">
+                            <h4 className="font-semibold text-gray-800">
                               {item.name || 'Product'}
                             </h4>
-                            <p className="text-xs text-gray-600">
-                              Qty: {item.qty || 1} × ₹{item.price || 0}
-                            </p>
+                            {item.selectedVariant && (
+                              <p className="text-xs text-emerald-600 font-medium">
+                                Variant: {item.selectedVariant.label || item.selectedVariant.name}
+                              </p>
+                            )}
+                            <p className="text-sm text-gray-600">₹{item.price || 0} × {item.qty || 1}</p>
                           </div>
                           <p className="font-semibold text-gray-800 text-sm">
                             ₹{((item.qty || 1) * (item.price || 0)).toFixed(2)}

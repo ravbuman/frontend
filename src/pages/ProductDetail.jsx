@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { FiArrowLeft, FiHeart, FiShoppingCart, FiStar, FiChevronLeft, FiChevronRight, FiMinus, FiPlus } from 'react-icons/fi';
+import VariantSelector from '../components/VariantSelector';
+import VariantPopup from '../components/VariantPopup';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -16,24 +18,36 @@ const ProductDetail = () => {
   const [wishlisted, setWishlisted] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [myRating, setMyRating] = useState(0);
-  const [myComment, setMyComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [hoverRating, setHoverRating] = useState(0);
+  const [myComment, setMyComment] = useState('');  const [submitting, setSubmitting] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);  const [hoverRating, setHoverRating] = useState(0);
+  const [showVariantPopup, setShowVariantPopup] = useState(false);
+  const [popupAction, setPopupAction] = useState('cart'); // 'cart' or 'buy'
+  const [selectedVariant, setSelectedVariant] = useState(null);
   useEffect(() => {
     window.scrollTo(0, 0);
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
 
-    const timeout = setTimeout(() => {
-      setLoading(true);
+    const timeout = setTimeout(() => {      setLoading(true);
       // Fetch product details
-      fetch(`https://coms-again.onrender.com/api/products/${id}`)
+      fetch(`http://localhost:5001/api/products/${id}`)
         .then(res => res.json())
         .then(data => {
           setProduct(data.product || null);
           setReviews(data.product?.reviews || []);
           setLoading(false);
+          
+          // Auto-select default variant if product has variants
+          if (data.product?.hasVariants && data.product?.variants?.length > 0) {
+            const availableVariants = data.product.variants.filter(v => v.stock > 0);
+            if (availableVariants.length > 0) {
+              const defaultVariant = availableVariants.find(v => v.isDefault) || 
+                                   availableVariants.reduce((cheapest, current) => 
+                                     current.price < cheapest.price ? current : cheapest
+                                   );
+              setSelectedVariant(defaultVariant);
+            }
+          }
           
           // Check if product is in wishlist
           if (token && data.product) {
@@ -52,7 +66,7 @@ const ProductDetail = () => {
 
   const checkWishlistStatus = async (productId, token) => {
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/wishlist/me', {
+      const response = await fetch('http://localhost:5001/api/products/wishlist/me', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -75,8 +89,8 @@ const ProductDetail = () => {
     
     try {
       const endpoint = wishlisted 
-        ? 'https://coms-again.onrender.com/api/products/wishlist/remove'
-        : 'https://coms-again.onrender.com/api/products/wishlist/add';
+        ? 'http://localhost:5001/api/products/wishlist/remove'
+        : 'http://localhost:5001/api/products/wishlist/add';
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -97,29 +111,96 @@ const ProductDetail = () => {
       toast.error('Error updating wishlist');
       console.error('Wishlist error:', error);
     }
+  };  // Variant helper functions
+  const getDefaultVariant = (product) => {
+    if (!product?.hasVariants || !product?.variants?.length) return null;
+    
+    // Filter variants with stock > 0
+    const availableVariants = product.variants.filter(v => v.stock > 0);
+    if (!availableVariants.length) return null;
+    
+    // Find explicitly marked default variant
+    const defaultVariant = availableVariants.find(v => v.isDefault);
+    if (defaultVariant) return defaultVariant;
+    
+    // Return cheapest variant as default
+    return availableVariants.reduce((cheapest, current) => 
+      current.price < cheapest.price ? current : cheapest
+    );
   };
-  const handleAddToCart = async () => {
-    if (product.stock <= 0) return;
+  const getDisplayStock = (product) => {
+    if (selectedVariant) return selectedVariant.stock;
+    
+    if (product.hasVariants && product.variants?.length > 0) {
+      const defaultVariant = getDefaultVariant(product);
+      return defaultVariant ? defaultVariant.stock : 0;
+    }
+    return product.stock;
+  };
+
+  const getDisplayPrice = (product) => {
+    if (selectedVariant) return selectedVariant.price;
+    
+    if (product.hasVariants && product.variants?.length > 0) {
+      const defaultVariant = getDefaultVariant(product);
+      return defaultVariant ? defaultVariant.price : product.price;
+    }
+    return product.price;
+  };
+
+  const getDisplayOriginalPrice = (product) => {
+    if (selectedVariant) return selectedVariant.originalPrice;
+    
+    if (product.hasVariants && product.variants?.length > 0) {
+      const defaultVariant = getDefaultVariant(product);
+      return defaultVariant ? defaultVariant.originalPrice : product.originalPrice;
+    }
+    return product.originalPrice;
+  };
+  const handleAddToCart = async (productId = id, qty = quantity, variantFromPopup = null) => {
     if (!isAuthenticated) {
       toast.error('Please login to add to cart');
       return;
     }
+
+    // Use variant from popup, selected variant, or check if product has variants
+    const variantToUse = variantFromPopup || selectedVariant;
+    
+    // If product has variants and no variant is selected, show error
+    if (product?.hasVariants && !variantToUse) {
+      toast.error('Please select a variant first');
+      return;
+    }
+
+    // Check stock
+    const stockToCheck = variantToUse ? variantToUse.stock : product.stock;
+    if (stockToCheck <= 0) {
+      toast.error('Product is out of stock');
+      return;
+    }
     
     try {
-      const response = await fetch('https://coms-again.onrender.com/api/products/cart/add', {
+      const requestBody = { 
+        productId, 
+        quantity: qty 
+      };
+      
+      if (variantToUse) {
+        requestBody.variantId = variantToUse.id;
+      }
+
+      const response = await fetch('http://localhost:5001/api/products/cart/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ 
-          productId: id, 
-          qty: quantity 
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
-        toast.success(`Added ${quantity} ${product.name} to cart`);
+        const variantText = variantToUse ? ` (${variantToUse.label})` : '';
+        toast.success(`Added ${qty} ${product.name}${variantText} to cart`);
       } else {
         throw new Error('Failed to add to cart');
       }
@@ -127,16 +208,34 @@ const ProductDetail = () => {
       toast.error('Error adding to cart');
       console.error('Cart error:', error);
     }
-  };
-
-  const handleBuyNow = () => {
-    if (product.stock <= 0) return;
+  };  const handleBuyNow = (productId = id, qty = quantity, variantFromPopup = null) => {
     if (!isAuthenticated) {
       toast.error('Please login to purchase');
       return;
     }
-    toast.success(`Purchased ${quantity} ${product.name}`);
-    // In a real app, this would navigate to checkout
+
+    // Use variant from popup, selected variant, or check if product has variants
+    const variantToUse = variantFromPopup || selectedVariant;
+    
+    // If product has variants and no variant is selected, show error
+    if (product?.hasVariants && !variantToUse) {
+      toast.error('Please select a variant first');
+      return;
+    }
+
+    // Check stock
+    const stockToCheck = variantToUse ? variantToUse.stock : product.stock;
+    if (stockToCheck <= 0) {
+      toast.error('Product is out of stock');
+      return;
+    }
+    
+    // Navigate to checkout with variant info if available
+    let url = `/checkout?product=${productId}&quantity=${qty}`;
+    if (variantToUse) {
+      url += `&variantId=${variantToUse.id}`;
+    }
+    navigate(url);
   };
 
   const handleSubmitReview = async () => {
@@ -159,7 +258,7 @@ const ProductDetail = () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`https://coms-again.onrender.com/api/products/${id}/reviews`, {
+      const res = await fetch(`http://localhost:5001/api/products/${id}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +268,7 @@ const ProductDetail = () => {
       });
 
       const data = await res.json();      if (res.ok) {
-        const updatedProduct = await fetch(`https://coms-again.onrender.com/api/products/${id}`).then(r => r.json());
+        const updatedProduct = await fetch(`http://localhost:5001/api/products/${id}`).then(r => r.json());
         setReviews(updatedProduct.product?.reviews || []);
         setMyRating(0);
         setMyComment('');
@@ -183,6 +282,11 @@ const ProductDetail = () => {
       setSubmitting(false);
     }
   };
+
+  // Reset quantity when variant changes
+  useEffect(() => {
+    setQuantity(1);
+  }, [selectedVariant]);
 
   const images = product?.images?.length ? product.images : [product?.image || '/placeholder.png'];
 
@@ -266,8 +370,7 @@ const ProductDetail = () => {
                     alt={product.name}
                     className="w-full h-[300px] lg:h-[500px] object-contain cursor-pointer hover:scale-105 transition-transform"
                     onClick={() => setShowImageModal(true)}
-                  />
-                  {product.stock <= 0 && (
+                  />                  {getDisplayStock(product) <= 0 && (
                     <div className="absolute top-4 right-4 lg:top-6 lg:right-6 bg-red-500 text-white px-3 py-1 lg:px-4 lg:py-2 rounded-xl font-medium shadow-lg text-sm lg:text-base">
                       Out of Stock
                     </div>
@@ -306,12 +409,10 @@ const ProductDetail = () => {
                   >
                     <FiHeart className="w-6 h-6" fill={wishlisted ? 'currentColor' : 'none'} />
                   </button>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <span className="text-[#2ecc71] font-bold text-3xl">₹{product.price.toLocaleString()}</span>
-                  {product.originalPrice && product.originalPrice > product.price && (
-                    <span className="text-gray-400 line-through text-xl">₹{product.originalPrice.toLocaleString()}</span>
+                </div>                <div className="flex items-center gap-4">
+                  <span className="text-[#2ecc71] font-bold text-3xl">₹{getDisplayPrice(product).toLocaleString()}</span>
+                  {getDisplayOriginalPrice(product) && getDisplayOriginalPrice(product) > getDisplayPrice(product) && (
+                    <span className="text-gray-400 line-through text-xl">₹{getDisplayOriginalPrice(product).toLocaleString()}</span>
                   )}
                 </div>
 
@@ -331,23 +432,33 @@ const ProductDetail = () => {
                   <span className="text-gray-600">
                     ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
                   </span>
-                </div>
-
-                <div className="bg-[#f8faf8] p-4 rounded-xl shadow-inner">
+                </div>                <div className="bg-[#f8faf8] p-4 rounded-xl shadow-inner">
                   <span className="text-gray-500 text-sm font-medium uppercase">{product.category}</span>
                   <p className="mt-2 text-gray-700 leading-relaxed">{product.description}</p>
                 </div>
 
+                {/* Variant Selector */}
+                {product.hasVariants && (
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-800">Choose Variant:</h4>
+                    <VariantSelector
+                      product={product}
+                      selectedVariant={selectedVariant}
+                      onVariantChange={setSelectedVariant}
+                      size="default"
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3 bg-[#f8faf8] p-4 rounded-xl shadow-inner">
-                  <span className={`w-3 h-3 rounded-full ${product.stock > 0 ? 'bg-[#2ecc71]' : 'bg-red-400'}`}></span>
+                  <span className={`w-3 h-3 rounded-full ${getDisplayStock(product) > 0 ? 'bg-[#2ecc71]' : 'bg-red-400'}`}></span>
                   <span className="font-medium text-gray-700">
-                    {product.stock > 0 ? `${product.stock} units available` : 'Out of Stock'}
+                    {getDisplayStock(product) > 0 ? `${getDisplayStock(product)} units available` : 'Out of Stock'}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-4 bg-[#f8faf8] p-4 rounded-xl shadow-inner">
-                  <span className="font-medium text-gray-700">Quantity:</span>
-                  <div className="flex items-center bg-white rounded-xl shadow-[4px_4px_8px_#e8eae8,-4px_-4px_8px_#ffffff]">
+                  <span className="font-medium text-gray-700">Quantity:</span>                  <div className="flex items-center bg-white rounded-xl shadow-[4px_4px_8px_#e8eae8,-4px_-4px_8px_#ffffff]">
                     <button
                       onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
                       className="p-2 text-gray-600 hover:text-[#2ecc71] transition-colors"
@@ -357,44 +468,41 @@ const ProductDetail = () => {
                     <input 
                       type="number" 
                       min={1} 
-                      max={product.stock}
+                      max={getDisplayStock(product)}
                       value={quantity} 
-                      onChange={e => setQuantity(Math.min(Number(e.target.value), product.stock))} 
+                      onChange={e => setQuantity(Math.min(Number(e.target.value), getDisplayStock(product)))} 
                       className="w-16 text-center border-none focus:ring-0 bg-transparent font-medium" 
                     />
                     <button
-                      onClick={() => setQuantity(prev => Math.min(prev + 1, product.stock))
-                      }
+                      onClick={() => setQuantity(prev => Math.min(prev + 1, getDisplayStock(product)))}
                       className="p-2 text-gray-600 hover:text-[#2ecc71] transition-colors"
                     >
                       <FiPlus />
                     </button>
                   </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
+                </div>                <div className="flex gap-4 pt-4">
                   <button 
-                    onClick={handleAddToCart}
-                    disabled={product.stock <= 0} 
+                    onClick={() => handleAddToCart()}
+                    disabled={getDisplayStock(product) <= 0} 
                     className={`flex-1 px-6 py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                      product.stock > 0 
+                      getDisplayStock(product) > 0 
                         ? 'bg-[#2ecc71] text-white shadow-[0_4px_12px_rgba(46,204,113,0.2)] hover:shadow-[0_6px_16px_rgba(46,204,113,0.3)] hover:bg-[#27ae60]' 
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <FiShoppingCart className="w-5 h-5" />
-                    Add to Cart
+                    {product.hasVariants ? 'Select & Add' : 'Add to Cart'}
                   </button>
                   <button 
-                    onClick={handleBuyNow}
-                    disabled={product.stock <= 0} 
+                    onClick={() => handleBuyNow()}
+                    disabled={getDisplayStock(product) <= 0} 
                     className={`flex-1 px-6 py-4 rounded-xl font-medium transition-all ${
-                      product.stock > 0 
+                      getDisplayStock(product) > 0 
                         ? 'bg-[#27ae60] text-white shadow-[0_4px_12px_rgba(39,174,96,0.2)] hover:shadow-[0_6px_16px_rgba(39,174,96,0.3)] hover:bg-[#219a52]' 
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    Buy Now
+                    {product.hasVariants ? 'Select & Buy' : 'Buy Now'}
                   </button>
                 </div>
               </div>
@@ -571,9 +679,21 @@ const ProductDetail = () => {
                 </button>
               </>
             )}
-          </div>
-        </motion.div>
+          </div>        </motion.div>
       )}
+
+      {/* Variant Selection Popup */}
+      <VariantPopup
+        isOpen={showVariantPopup}
+        onClose={() => {
+          setShowVariantPopup(false);
+          setPopupAction('cart');
+        }}
+        product={product}
+        onAddToCart={handleAddToCart}
+        onBuyNow={handleBuyNow}
+        actionType={popupAction}
+      />
     </div>
   );
 };

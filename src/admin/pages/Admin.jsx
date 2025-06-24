@@ -51,10 +51,10 @@ const Admin = () => {
 
       // Fetch all data in parallel
       const [productsRes, ordersRes, usersRes, couponsRes] = await Promise.allSettled([
-        fetch('https://coms-again.onrender.com/api/products/', { headers }),
-        fetch('https://coms-again.onrender.com/api/products/orders/all', { headers }),
-        fetch('https://coms-again.onrender.com/api/products/users/all', { headers }),
-        fetch('https://coms-again.onrender.com/api/coupons/', { headers })
+        fetch('http://localhost:5001/api/products/', { headers }),
+        fetch('http://localhost:5001/api/products/orders/all', { headers }),
+        fetch('http://localhost:5001/api/products/users/all', { headers }),
+        fetch('http://localhost:5001/api/coupons/', { headers })
       ]);
 
       // Process products
