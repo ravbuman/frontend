@@ -30,7 +30,7 @@ const ProductDetail = () => {
 
     const timeout = setTimeout(() => {      setLoading(true);
       // Fetch product details
-      fetch(`http://localhost:5001/api/products/${id}`)
+      fetch(`https://coms-again.onrender.com/api/products/${id}`)
         .then(res => res.json())
         .then(data => {
           setProduct(data.product || null);
@@ -66,7 +66,7 @@ const ProductDetail = () => {
 
   const checkWishlistStatus = async (productId, token) => {
     try {
-      const response = await fetch('http://localhost:5001/api/products/wishlist/me', {
+      const response = await fetch('https://coms-again.onrender.com/api/products/wishlist/me', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -89,8 +89,8 @@ const ProductDetail = () => {
     
     try {
       const endpoint = wishlisted 
-        ? 'http://localhost:5001/api/products/wishlist/remove'
-        : 'http://localhost:5001/api/products/wishlist/add';
+        ? 'https://coms-again.onrender.com/api/products/wishlist/remove'
+        : 'https://coms-again.onrender.com/api/products/wishlist/add';
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -189,7 +189,7 @@ const ProductDetail = () => {
         requestBody.variantId = variantToUse.id;
       }
 
-      const response = await fetch('http://localhost:5001/api/products/cart/add', {
+      const response = await fetch('https://coms-again.onrender.com/api/products/cart/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -258,7 +258,7 @@ const ProductDetail = () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5001/api/products/${id}/reviews`, {
+      const res = await fetch(`https://coms-again.onrender.com/api/products/${id}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -268,7 +268,7 @@ const ProductDetail = () => {
       });
 
       const data = await res.json();      if (res.ok) {
-        const updatedProduct = await fetch(`http://localhost:5001/api/products/${id}`).then(r => r.json());
+        const updatedProduct = await fetch(`https://coms-again.onrender.com/api/products/${id}`).then(r => r.json());
         setReviews(updatedProduct.product?.reviews || []);
         setMyRating(0);
         setMyComment('');

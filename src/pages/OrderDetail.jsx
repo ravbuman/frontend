@@ -39,7 +39,7 @@ const OrderDetail = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:5001/api/products/orders/${orderId}`, {
+      const response = await fetch(`https://coms-again.onrender.com/api/products/orders/${orderId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
