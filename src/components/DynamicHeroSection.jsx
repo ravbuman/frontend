@@ -10,7 +10,7 @@ const DynamicHeroSection = () => {
   const [error, setError] = useState(null);
   const intervalRef = useRef(null);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://coms-again.onrender.com/api';
 
   // Fetch active banners from API
   useEffect(() => {

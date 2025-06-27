@@ -53,7 +53,7 @@ const DeliverySlotSelector = ({
     const fetchTimeSlots = async () => {
       setLoadingTimeSlots(true);
       try {
-        const response = await fetch('http://localhost:5001/api/delivery-slots/time-slots', {
+        const response = await fetch('https://coms-again.onrender.com/api/delivery-slots/time-slots', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
