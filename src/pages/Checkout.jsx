@@ -751,14 +751,14 @@ const Checkout = () => {
                   )}
                 </div>
 
-                {/* Coin Redemption Widget */}
+                {/* Coin Redemption Widget
                 <div className="border-t border-gray-200 pt-6 mt-6">
                   <CoinRedemptionWidget 
                     orderValue={subtotal}
                     onDiscountApply={handleCoinDiscountApply}
                     appliedCoinDiscount={coinDiscount}
                   />
-                </div>
+                </div> */}
 
                 {/* Price Summary */}
                 <div className="border-t border-gray-200 pt-6 mt-6">
