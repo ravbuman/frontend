@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiDollarSign, FiInfo, FiLoader, FiCheckCircle, FiX, FiCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+/** Coin Redemption Widget **/
 
 const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount = null }) => {
   const [availableCoins, setAvailableCoins] = useState(0);
@@ -357,5 +358,4 @@ const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount
     </motion.div>
   );
 };
-
 export default CoinRedemptionWidget;
