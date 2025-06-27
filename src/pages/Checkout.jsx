@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import CoinRedemptionWidget from '../components/Checkout/CoinRedemptionWidget';
+import CoinRedemptionWidget from './CoinRedemptionWidget';
 import { 
   FiArrowLeft,
   FiShoppingCart,
