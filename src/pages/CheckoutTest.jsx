@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FiShoppingCart, FiCreditCard, FiCheckCircle } from 'react-icons/fi';
+
 import CoinRedemptionWidget from '../components/Checkout/CoinRedemptionWidget';
 import toast from 'react-hot-toast';
 
