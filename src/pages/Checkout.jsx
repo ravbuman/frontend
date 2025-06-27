@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import CoinRedemptionWidget from '../components/Checkout/CoinRedemptionWidget';
 import { 
   FiArrowLeft,
   FiShoppingCart,
@@ -48,6 +49,7 @@ const Checkout = () => {
   const [orderProcessing, setOrderProcessing] = useState(false);
   const [orderResult, setOrderResult] = useState(null);  const [subtotal, setSubtotal] = useState(0);
   const [discount, setDiscount] = useState(0);
+  const [coinDiscount, setCoinDiscount] = useState(null); // New state for coin discount
   const [userEmail, setUserEmail] = useState('');
   const [total, setTotal] = useState(0);
   
@@ -80,7 +82,9 @@ const Checkout = () => {
 
   useEffect(() => {
     calculateTotals();
-  }, [cart, appliedCoupon]);  const fetchCheckoutData = async () => {
+  }, [cart, appliedCoupon, coinDiscount]); // Add coinDiscount dependency
+
+  const fetchCheckoutData = async () => {
     setLoading(true);
     try {
       // Check if this is a direct product purchase from URL parameters
@@ -196,9 +200,12 @@ const Checkout = () => {
     
     setDiscount(discountAmount);
     
+    // Add coin discount
+    const coinDiscountAmount = coinDiscount ? coinDiscount.discountAmount : 0;
+    
     // Calculate shipping: Free if subtotal >= 500, otherwise ₹100
     const shippingCost = subtotalAmount >= 500 ? 0 : 100;
-    setTotal(subtotalAmount - discountAmount + shippingCost);
+    setTotal(subtotalAmount - discountAmount - coinDiscountAmount + shippingCost);
   };
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -383,18 +390,30 @@ const Checkout = () => {
     setShowPaymentModal(true);
       try {
       // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-        const orderData = {        items: cart.map(item => ({
+      await new Promise(resolve => setTimeout(resolve, 1000));        const orderData = {
+        items: cart.map(item => ({
           id: item._id,
           name: item.name,
           price: item.selectedVariant ? item.selectedVariant.price : item.price,
           qty: item.qty || 1,
-          image: item.image || (item.images && item.images[0] ? item.images[0] : null),
-          // Variant information
+          image: item.type === 'combo' 
+            ? (item.mainImage || item.products?.[0]?.images?.[0]?.url || '/placeholder.png')
+            : (item.image || (item.images && item.images[0] ? item.images[0] : '/placeholder.png')),
+          // Item type information
+          type: item.type || 'product', // 'product' or 'combo'
+          itemType: item.type || 'product', // For Order model compatibility
+          // Variant information (for products)
           hasVariant: !!item.selectedVariant,
           variantId: item.selectedVariant?.id || null,
           variantName: item.selectedVariant?.label || item.selectedVariant?.name || null,
           variantPrice: item.selectedVariant?.price || null,
+          // Combo pack information
+          ...(item.type === 'combo' && {
+            originalTotalPrice: item.originalTotalPrice,
+            discountAmount: item.discountAmount,
+            discountPercentage: item.discountPercentage,
+            comboProducts: item.products || []
+          }),
           isDirect: item.isDirect || false
         })),
         totalAmount: total,
@@ -409,8 +428,13 @@ const Checkout = () => {
         paymentMethod: paymentMethod.toUpperCase(), // COD or UPI
         paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
         coupon: appliedCoupon?._id || null, // Send coupon ID if applied
+        coinDiscount: coinDiscount, // Include coin discount data
+        subtotal: subtotal, // Include subtotal for backend calculations
         upiTransactionId: paymentMethod === 'upi' ? utrNumber : null
       };
+
+      console.log('[CHECKOUT] Order Data being sent:', orderData);
+      console.log('[CHECKOUT] Coin discount data:', coinDiscount);
 
       console.log('Order Data:', orderData); // Debug log
 
@@ -477,6 +501,12 @@ const Checkout = () => {
     } finally {
       setOrderProcessing(false);
     }
+  };
+
+  // Handler for coin discount application
+  const handleCoinDiscountApply = (discount) => {
+    console.log('[CHECKOUT] Coin discount applied:', discount);
+    setCoinDiscount(discount);
   };
 
   if (loading) {
@@ -597,9 +627,12 @@ const Checkout = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
                     >                      <div className="w-16 h-16 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center overflow-hidden">
-                        {item.image || (item.images && item.images[0]) ? (
+                        {(item.type === 'combo' ? (item.mainImage || item.products?.[0]?.images?.[0]?.url) : (item.image || (item.images && item.images[0]))) ? (
                           <img 
-                            src={item.image || item.images[0]} 
+                            src={item.type === 'combo' 
+                              ? (item.mainImage || item.products?.[0]?.images?.[0] || '/placeholder.png')
+                              : (item.image || item.images[0] || '/placeholder.png')
+                            } 
                             alt={item.name || 'Product'}
                             className="w-full h-full object-cover rounded-xl"
                           />
@@ -716,7 +749,18 @@ const Checkout = () => {
                       </button>
                     </div>
                   )}
-                </div>                {/* Price Summary */}
+                </div>
+
+                {/* Coin Redemption Widget */}
+                <div className="border-t border-gray-200 pt-6 mt-6">
+                  <CoinRedemptionWidget 
+                    orderValue={subtotal}
+                    onDiscountApply={handleCoinDiscountApply}
+                    appliedCoinDiscount={coinDiscount}
+                  />
+                </div>
+
+                {/* Price Summary */}
                 <div className="border-t border-gray-200 pt-6 mt-6">
                   <div className="space-y-3">
                     <div className="flex justify-between">
@@ -736,8 +780,14 @@ const Checkout = () => {
                     )}
                     {discount > 0 && (
                       <div className="flex justify-between text-green-600">
-                        <span>Discount:</span>
+                        <span>Coupon Discount:</span>
                         <span className="font-semibold">-₹{discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {coinDiscount && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Coin Discount ({coinDiscount.coinsUsed} coins):</span>
+                        <span className="font-semibold">-₹{coinDiscount.discountAmount.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="border-t border-gray-200 pt-3">
@@ -1190,7 +1240,7 @@ const Checkout = () => {
                     )}
                     <div className="border-t border-gray-200 pt-3">
                       <div className="flex justify-between text-lg font-bold">
-                        <span>Total Amount:</span>
+                        <span>Total:</span>
                         <span>₹{total.toFixed(2)}</span>
                       </div>
                     </div>
@@ -1237,11 +1287,13 @@ const Checkout = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-3">Items ({cart.length})</h3>
                     <div className="space-y-3">                      {cart.map((item, index) => (
-                        <div key={item._id || index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
-                          <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
-                            {item.image || (item.images && item.images[0]) ? (
+                        <div key={item._id || index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">                          <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+                            {(item.type === 'combo' ? (item.mainImage || item.products?.[0]?.images?.[0]?.url) : (item.image || (item.images && item.images[0]))) ? (
                               <img 
-                                src={item.image || item.images[0]} 
+                                src={item.type === 'combo' 
+                                  ? (item.mainImage || item.products?.[0]?.images?.[0] || '/placeholder.png')
+                                  : (item.image || item.images[0] || '/placeholder.png')
+                                } 
                                 alt={item.name || 'Product'}
                                 className="w-full h-full object-cover rounded-lg"
                               />
@@ -1323,6 +1375,24 @@ const Checkout = () => {
                         </div>
                       </div>
                     </div>
+                  )}
+
+                  {/* Applied Coin Discount */}
+                  {coinDiscount && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">Indira Coins Applied</h3>
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <FiCheckCircle className="w-5 h-5 text-green-600" />
+                          <div>
+                            <h4 className="font-medium text-green-800">{coinDiscount.coinsUsed} coins used</h4>
+                            <p className="text-sm text-green-600">
+                              ₹{coinDiscount.discountAmount} discount applied
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}                  {/* Final Total */}
                   <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-3">Payment Summary</h3>
@@ -1341,6 +1411,12 @@ const Checkout = () => {
                         <div className="flex justify-between text-green-600">
                           <span>Discount:</span>
                           <span className="font-semibold">-₹{discount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {coinDiscount && coinDiscount.discountAmount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Indira Coins ({coinDiscount.coinsUsed} coins):</span>
+                          <span className="font-semibold">-₹{coinDiscount.discountAmount.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="border-t border-gray-200 pt-3">

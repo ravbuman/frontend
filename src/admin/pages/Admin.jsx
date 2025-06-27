@@ -19,12 +19,12 @@ import toast from 'react-hot-toast';
 const Admin = () => {
   const { primary, mode } = useThemeContext();
   const { isAdmin, admin } = useAuth();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({
+  const navigate = useNavigate();  const [stats, setStats] = useState({
     totalProducts: 0,
     totalOrders: 0,
     totalUsers: 0,
     totalCoupons: 0,
+    totalComboPacks: 0,
     pendingOrders: 0,
     recentOrders: []
   });
@@ -47,14 +47,13 @@ const Admin = () => {
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
-      };
-
-      // Fetch all data in parallel
-      const [productsRes, ordersRes, usersRes, couponsRes] = await Promise.allSettled([
+      };      // Fetch all data in parallel
+      const [productsRes, ordersRes, usersRes, couponsRes, comboPacksRes] = await Promise.allSettled([
         fetch('https://coms-again.onrender.com/api/products/', { headers }),
         fetch('https://coms-again.onrender.com/api/products/orders/all', { headers }),
         fetch('https://coms-again.onrender.com/api/products/users/all', { headers }),
-        fetch('https://coms-again.onrender.com/api/coupons/', { headers })
+        fetch('https://coms-again.onrender.com/api/coupons/', { headers }),
+        fetch('https://coms-again.onrender.com/api/combo-packs/all', { headers })
       ]);
 
       // Process products
@@ -81,13 +80,18 @@ const Admin = () => {
       if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
         const usersData = await usersRes.value.json();
         totalUsers = usersData.users?.length || 0;
-      }
-
-      // Process coupons
+      }      // Process coupons
       let totalCoupons = 0;
       if (couponsRes.status === 'fulfilled' && couponsRes.value.ok) {
         const couponsData = await couponsRes.value.json();
         totalCoupons = couponsData.coupons?.length || 0;
+      }
+
+      // Process combo packs
+      let totalComboPacks = 0;
+      if (comboPacksRes.status === 'fulfilled' && comboPacksRes.value.ok) {
+        const comboPacksData = await comboPacksRes.value.json();
+        totalComboPacks = comboPacksData.comboPacks?.length || 0;
       }
 
       setStats({
@@ -95,6 +99,7 @@ const Admin = () => {
         totalOrders,
         totalUsers,
         totalCoupons,
+        totalComboPacks,
         pendingOrders,
         recentOrders
       });
@@ -139,7 +144,7 @@ const Admin = () => {
           <p className="text-gray-600 text-base md:text-lg">
             Welcome back, <span className="font-semibold text-green-700">{admin?.name || 'Admin'}</span>! Here's what's happening with your store.
           </p>        </div>        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-6 mb-8">
           <div className="neumorphic-card p-3 lg:p-6 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20 hover:shadow-soft-lg transition-all duration-300">
             <div className="flex items-center">
               <div className="neumorphic-icon p-2 lg:p-4 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 shadow-soft">
@@ -148,6 +153,18 @@ const Admin = () => {
               <div className="ml-2 lg:ml-4 min-w-0">
                 <p className="text-xs lg:text-sm text-gray-600 font-medium">Total Products</p>
                 <p className="text-lg lg:text-3xl font-bold text-gray-800 truncate">{stats.totalProducts}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="neumorphic-card p-3 lg:p-6 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/20 hover:shadow-soft-lg transition-all duration-300">
+            <div className="flex items-center">
+              <div className="neumorphic-icon p-2 lg:p-4 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 shadow-soft">
+                <PackageIcon className="w-4 h-4 lg:w-6 lg:h-6 text-white" />
+              </div>
+              <div className="ml-2 lg:ml-4 min-w-0">
+                <p className="text-xs lg:text-sm text-gray-600 font-medium">Combo Packs</p>
+                <p className="text-lg lg:text-3xl font-bold text-gray-800 truncate">{stats.totalComboPacks}</p>
               </div>
             </div>
           </div>

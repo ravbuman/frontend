@@ -298,6 +298,57 @@ const AdminOrderDetail = () => {
                 </div>
               </div>
 
+              {/* Delivery Slot Information */}
+              <div className="neumorphic-card p-4 lg:p-6 rounded-3xl bg-white/60 backdrop-blur-sm border border-white/20">
+                <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-gray-800 flex items-center">
+                  <span className="w-2 h-6 lg:h-8 bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full mr-2 lg:mr-3"></span>
+                  Delivery Information
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-gray-600">📅 Preferred Delivery Date</label>
+                    {order.deliverySlot?.date ? (
+                      <p className="text-gray-800 font-medium text-sm lg:text-base">
+                        {new Date(order.deliverySlot.date).toLocaleDateString('en-IN', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 italic text-sm lg:text-base">No preference selected</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 text-gray-600">🕐 Preferred Time Slot</label>
+                    {order.deliverySlot?.timeSlot ? (
+                      <span className="px-3 lg:px-4 py-2 lg:py-3 rounded-2xl text-sm font-medium border bg-blue-100 text-blue-700 border-blue-200 inline-block">
+                        {order.deliverySlot.timeSlot}
+                      </span>
+                    ) : (
+                      <p className="text-gray-500 italic text-sm lg:text-base">No preference selected</p>
+                    )}
+                  </div>
+                  {order.deliverySlot?.lastModified && (
+                    <div className="lg:col-span-2">
+                      <label className="block text-sm font-semibold mb-2 text-gray-600">Last Updated</label>
+                      <p className="text-gray-600 text-xs lg:text-sm">
+                        {new Date(order.deliverySlot.lastModified).toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                  )}
+                  {(order.deliverySlot?.date || order.deliverySlot?.timeSlot) && (
+                    <div className="lg:col-span-2">
+                      <div className="flex items-center text-xs lg:text-sm text-gray-600 bg-blue-50 p-3 rounded-xl border border-blue-200">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        <span>Customer has selected delivery preferences. Plan accordingly for optimal delivery experience.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Order Items */}
               <div className="neumorphic-card p-4 lg:p-6 rounded-3xl bg-white/60 backdrop-blur-sm border border-white/20">
                 <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-gray-800 flex items-center">

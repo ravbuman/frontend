@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiArrowLeft,
   FiShoppingBag, 
@@ -19,6 +19,7 @@ import {
   FiDownload,
   FiStar
 } from 'react-icons/fi';
+import DeliverySlotSelector from '../components/DeliverySlotSelector';
 
 const OrderDetail = () => {
   const { orderId } = useParams();
@@ -26,6 +27,8 @@ const OrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isDeliverySlotModalOpen, setIsDeliverySlotModalOpen] = useState(false);
+  const [deliverySlotLoading, setDeliverySlotLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -63,6 +66,46 @@ const OrderDetail = () => {
       setError('Error fetching order details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeliverySlotUpdate = async (selectedDate, selectedTimeSlot) => {
+    setDeliverySlotLoading(true);
+    
+    console.log('Sending delivery slot update:', { date: selectedDate, timeSlot: selectedTimeSlot });
+    
+    try {
+      const response = await fetch(`https://coms-again.onrender.com/api/orders/${orderId}/delivery-slot`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          date: selectedDate,
+          timeSlot: selectedTimeSlot
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setOrder(prev => ({
+          ...prev,
+          deliverySlot: data.deliverySlot
+        }));
+        setIsDeliverySlotModalOpen(false);
+        // You could add a success toast here
+        alert('Delivery preferences updated successfully!');
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Backend error:', errorData);
+        alert(errorData.message || errorData.error || 'Failed to update delivery preferences');
+      }
+    } catch (error) {
+      console.error('Error updating delivery slot:', error);
+      alert('Error updating delivery preferences');
+    } finally {
+      setDeliverySlotLoading(false);
     }
   };
   const getStatusIcon = (status) => {
@@ -631,6 +674,12 @@ const OrderDetail = () => {
                           <span className="font-semibold">-₹{discountAmount.toFixed(2)}</span>
                         </div>
                       )}
+                      {order.coinDiscount && order.coinDiscount.amount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Indira Coins ({order.coinDiscount.coinsUsed} coins):</span>
+                          <span className="font-semibold">-₹{order.coinDiscount.amount.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-gray-600">Tax:</span>
                         <span className="font-semibold">₹0</span>
@@ -730,6 +779,75 @@ const OrderDetail = () => {
               </div>
             )}
 
+            {/* Delivery Slot Information */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-lg border border-white/20">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-3">
+                <FiTruck className="w-5 h-5" />
+                Delivery Preferences
+              </h3>
+              
+              {order.deliverySlot?.date || order.deliverySlot?.timeSlot ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {order.deliverySlot.date && (
+                      <div className="p-4 bg-blue-50 rounded-2xl">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FiCalendar className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-600">Preferred Date</span>
+                        </div>
+                        <p className="text-gray-800 font-semibold">
+                          {new Date(order.deliverySlot.date).toLocaleDateString('en-IN', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {order.deliverySlot.timeSlot && (
+                      <div className="p-4 bg-green-50 rounded-2xl">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FiClock className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">Preferred Time</span>
+                        </div>
+                        <p className="text-gray-800 font-semibold">
+                          {order.deliverySlot.timeSlot}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {order.deliverySlot.lastModified && (
+                    <p className="text-xs text-gray-500 text-center">
+                      Last updated: {new Date(order.deliverySlot.lastModified).toLocaleString('en-IN')}
+                    </p>
+                  )}
+                  
+                  {/* Delivery slot can always be modified */}
+                  <button 
+                    onClick={() => setIsDeliverySlotModalOpen(true)}
+                    className="w-full px-4 py-2 bg-white border-2 border-blue-300 text-blue-600 rounded-xl hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    <FiRefreshCw className="w-4 h-4" />
+                    Change Delivery Preferences
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 mb-4">No delivery preferences selected</p>
+                  <button 
+                    onClick={() => setIsDeliverySlotModalOpen(true)}
+                    className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+                  >
+                    <FiClock className="w-4 h-4" />
+                    Select Delivery Preferences
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Actions */}
             <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-lg border border-white/20">
               <h3 className="text-lg font-bold text-gray-800 mb-4">Actions</h3>
@@ -754,6 +872,46 @@ const OrderDetail = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Delivery Slot Modal */}
+      <AnimatePresence>
+        {isDeliverySlotModalOpen && (
+          <motion.div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsDeliverySlotModalOpen(false)}
+          >
+            <motion.div 
+              className="w-full max-w-md bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Select Delivery Preferences</h3>
+                <button 
+                  onClick={() => setIsDeliverySlotModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <DeliverySlotSelector 
+                onSlotSelect={handleDeliverySlotUpdate}
+                loading={deliverySlotLoading}
+                initialDate={order?.deliverySlot?.date}
+                initialTimeSlot={order?.deliverySlot?.timeSlot}
+                canModify={true}
+                onCancel={() => setIsDeliverySlotModalOpen(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

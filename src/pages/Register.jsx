@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiUser, FiLock, FiMail, FiPhone, FiUserPlus, FiEye, FiEyeOff } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import ReferralCodeInput from '../components/Referral/ReferralCodeInput';
 
 const Register = () => {
   const [form, setForm] = useState({ username: '', password: '', name: '', email: '', phone: '' });
+  const [referralCode, setReferralCode] = useState('');
+  const [validReferralCode, setValidReferralCode] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +19,11 @@ const Register = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleReferralCodeChange = (code, isValid) => {
+    setReferralCode(code);
+    setValidReferralCode(isValid);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -23,18 +31,34 @@ const Register = () => {
     setSuccess('');
     
     try {
+      const registrationData = { ...form };
+      
+      // Include referral code if provided (even if validation is pending)
+      if (referralCode && referralCode.trim()) {
+        registrationData.referralCode = referralCode.trim();
+        console.log('Sending referral code:', referralCode.trim());
+      }
+      
+      console.log('Registration data:', registrationData);
+      
       const res = await fetch('https://coms-again.onrender.com/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(registrationData),
       });
       const data = await res.json();
       
       if (!res.ok) throw new Error(data.message || 'Registration failed');
       
-      setSuccess('Registration successful! You can now login.');
+      let successMessage = 'Registration successful! You can now login.';
+      if (referralCode && validReferralCode) {
+        successMessage += ' Your referrer has been rewarded with bonus coins!';
+      }
+      
+      setSuccess(successMessage);
       toast.success('Account created successfully!');
       setForm({ username: '', password: '', name: '', email: '', phone: '' });
+      setReferralCode('');
       
       // Redirect to login after 2 seconds
       setTimeout(() => {
@@ -198,6 +222,12 @@ const Register = () => {
                 />
               </div>
             </div>
+
+            {/* Referral Code Input */}
+            <ReferralCodeInput 
+              onCodeChange={handleReferralCodeChange}
+              initialCode={referralCode}
+            />
 
             {/* Error Message */}
             <AnimatePresence>

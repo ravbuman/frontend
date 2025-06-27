@@ -38,16 +38,22 @@ const Cart = () => {  const [cart, setCart] = useState([]);
     } finally {
       setLoading(false);
     }
-  };  const updateQuantity = async (productId, qty, variantId = null) => {
-    const itemKey = variantId ? `${productId}-${variantId}` : productId;
+  };  const updateQuantity = async (itemId, qty, variantId = null, itemType = 'product') => {
+    const itemKey = variantId ? `${itemId}-${variantId}` : itemId;
     if (updatingItems.has(itemKey)) return;
     
     setUpdatingItems(prev => new Set(prev).add(itemKey));
     
     try {
-      const requestBody = { productId, qty };
-      if (variantId) {
-        requestBody.variantId = variantId;
+      const requestBody = { qty, type: itemType };
+      
+      if (itemType === 'combo') {
+        requestBody.comboPackId = itemId;
+      } else {
+        requestBody.productId = itemId;
+        if (variantId) {
+          requestBody.variantId = variantId;
+        }
       }
 
       const response = await fetch('https://coms-again.onrender.com/api/products/cart/update', {
@@ -74,17 +80,22 @@ const Cart = () => {  const [cart, setCart] = useState([]);
         return newSet;
       });
     }
-  };
-  const removeItem = async (productId, variantId = null) => {
-    const itemKey = variantId ? `${productId}-${variantId}` : productId;
+  };  const removeItem = async (itemId, variantId = null, itemType = 'product') => {
+    const itemKey = variantId ? `${itemId}-${variantId}` : itemId;
     if (updatingItems.has(itemKey)) return;
     
     setUpdatingItems(prev => new Set(prev).add(itemKey));
     
     try {
-      const requestBody = { productId };
-      if (variantId) {
-        requestBody.variantId = variantId;
+      const requestBody = { type: itemType };
+      
+      if (itemType === 'combo') {
+        requestBody.comboPackId = itemId;
+      } else {
+        requestBody.productId = itemId;
+        if (variantId) {
+          requestBody.variantId = variantId;
+        }
       }
 
       const response = await fetch('https://coms-again.onrender.com/api/products/cart/remove', {
@@ -186,15 +197,17 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                   <div className="sm:hidden">
                     <div className="flex gap-3">
                       {/* Left Column - Image + Product Name */}
-                      <div className="flex-1 min-w-0">
-                        <Link to={`/product/${item._id}`} className="flex gap-3 items-start">
+                      <div className="flex-1 min-w-0">                        <Link to={`/${item.type === 'combo' ? 'combo-packs' : 'products'}/${item._id}`} className="flex gap-3 items-start">
                           <div className="w-16 h-16 rounded-xl overflow-hidden shadow-inner bg-[#f8faf8] flex-shrink-0">
                             <img
-                              src={item.images[0]}
+                              src={item.type === 'combo' 
+                                ? (item.mainImage || item.products?.[0]?.images?.[0]?.url || '/placeholder.png')
+                                : (item.images?.[0] || item.selectedVariant?.images?.[0] || '/placeholder.png')
+                              }
                               alt={item.name}
                               className="w-full h-full object-cover hover:scale-105 transition-transform"
                             />
-                          </div>                          <div className="flex-1 min-w-0">
+                          </div><div className="flex-1 min-w-0">
                             <h3 className="text-sm font-semibold text-gray-800 hover:text-[#2ecc71] transition-colors line-clamp-2">
                               {item.name}
                             </h3>
@@ -219,7 +232,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                           {/* Quantity Controls */}
                         <div className="flex items-center bg-[#f8faf8] rounded-xl p-1 shadow-inner">
                           <button
-                            onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1), item.selectedVariant?.id)}
+                            onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1), item.selectedVariant?.id, item.type)}
                             disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) || item.qty <= 1}
                             className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -231,7 +244,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                           </button>
                           <span className="w-8 text-center font-medium text-gray-800 text-sm">{item.qty}</span>
                           <button
-                            onClick={() => updateQuantity(item._id, item.qty + 1, item.selectedVariant?.id)}
+                            onClick={() => updateQuantity(item._id, item.qty + 1, item.selectedVariant?.id, item.type)}
                             disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
                             className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -245,7 +258,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
 
                         {/* Remove Button */}
                         <button
-                          onClick={() => removeItem(item._id, item.selectedVariant?.id)}
+                          onClick={() => removeItem(item._id, item.selectedVariant?.id, item.type)}
                           disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
                           className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-500 bg-red-50 rounded-xl transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -259,18 +272,20 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                     </div>
                   </div>
 
-                  {/* Desktop/Tablet Layout - Original */}
-                  <div className="hidden sm:flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                    <Link to={`/product/${item._id}`}>
+                  {/* Desktop/Tablet Layout - Original */}                  <div className="hidden sm:flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                    <Link to={`/${item.type === 'combo' ? 'combo-packs' : 'products'}/${item._id}`}>
                       <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden shadow-inner bg-[#f8faf8]">
                         <img
-                          src={item.images[0]}
+                          src={item.type === 'combo' 
+                            ? (item.mainImage || item.products?.[0]?.images?.[0]?.url || '/placeholder.png')
+                            : (item.images?.[0] || item.selectedVariant?.images?.[0] || '/placeholder.png')
+                          }
                           alt={item.name}
                           className="w-full h-full object-cover hover:scale-105 transition-transform"
                         />
                       </div>
                     </Link>                    <div className="flex-grow min-w-0">
-                      <Link to={`/product/${item._id}`}>
+                      <Link to={`/${item.type === 'combo' ? 'combo-packs' : 'products'}/${item._id}`}>
                         <h3 className="text-base sm:text-lg font-semibold text-gray-800 hover:text-[#2ecc71] transition-colors overflow-hidden" style={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'}}>
                           {item.name}
                         </h3>
@@ -290,7 +305,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                       </div>
                     </div>                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">                      <div className="flex items-center bg-[#f8faf8] rounded-xl sm:rounded-2xl p-1 sm:p-2 shadow-inner">
                         <button
-                          onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1), item.selectedVariant?.id)}
+                          onClick={() => updateQuantity(item._id, Math.max(1, item.qty - 1), item.selectedVariant?.id, item.type)}
                           disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) || item.qty <= 1}
                           className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg sm:rounded-xl hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -302,7 +317,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                         </button>
                         <span className="w-8 sm:w-12 text-center font-medium text-gray-800 text-sm sm:text-base">{item.qty}</span>
                         <button
-                          onClick={() => updateQuantity(item._id, item.qty + 1, item.selectedVariant?.id)}
+                          onClick={() => updateQuantity(item._id, item.qty + 1, item.selectedVariant?.id, item.type)}
                           disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
                           className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-gray-600 hover:text-[#2ecc71] transition-colors rounded-lg sm:rounded-xl hover:bg-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -314,7 +329,7 @@ const Cart = () => {  const [cart, setCart] = useState([]);
                         </button>
                       </div>
                       <button
-                        onClick={() => removeItem(item._id, item.selectedVariant?.id)}
+                        onClick={() => removeItem(item._id, item.selectedVariant?.id, item.type)}
                         disabled={updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id)}
                         className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-red-400 hover:text-red-500 bg-red-50 rounded-xl sm:rounded-2xl transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"                      >
                         {updatingItems.has(item.selectedVariant?.id ? `${item._id}-${item.selectedVariant.id}` : item._id) ? (

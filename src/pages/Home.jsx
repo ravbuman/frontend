@@ -1,37 +1,131 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
-import { FiShoppingBag, FiStar, FiTrendingUp, FiArrowRight, FiHeart, FiShoppingCart, FiEye, FiUsers, FiAward, FiTruck } from 'react-icons/fi';
+import { FiShoppingBag, FiStar, FiTrendingUp, FiArrowRight, FiHeart, FiShoppingCart, FiEye, FiUsers, FiShield, FiTruck, FiPackage } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
+// Import the new components
+import ComboDeals from '../components/home/ComboDeals';
+import FeaturedProducts from '../components/home/FeaturedProducts';
+import DynamicHeroSection from '../components/DynamicHeroSection';
+
+// ProductCard component for other sections
+const ProductCard = ({ product, index, onAddToWishlist, onAddToCart, isInWishlist, navigate }) => {
+  const productIsWishlisted = isInWishlist(product._id);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="bg-white rounded-3xl p-6 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] hover:shadow-[12px_12px_24px_#e8eae8,-12px_-12px_24px_#ffffff] transition-all duration-300 group relative"
+    >
+      {/* Wishlist indicator - always visible if wishlisted */}
+      {productIsWishlisted && (
+        <div className="absolute top-3 left-3 z-10">
+          <div className="p-2 bg-red-500 text-white rounded-xl shadow-lg">
+            <FiHeart className="w-4 h-4 fill-current" />
+          </div>
+        </div>
+      )}
+      
+      <div className="relative mb-4">
+        <div className="w-full h-48 bg-[#f8faf8] rounded-2xl shadow-inner overflow-hidden">
+          <img
+            src={product.images?.[0] || product.image || '/placeholder.png'}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onAddToWishlist(product._id)}
+            className={`p-2 rounded-xl shadow-[4px_4px_8px_#e8eae8,-4px_-4px_8px_#ffffff] transition-all ${
+              productIsWishlisted 
+                ? 'bg-red-500 text-white hover:bg-red-600' 
+                : 'bg-white hover:bg-red-50 hover:text-red-500'
+            }`}
+          >
+            <FiHeart className={`w-4 h-4 ${productIsWishlisted ? 'fill-current' : ''}`} />
+          </button>
+          <button
+            onClick={() => navigate(`/products/${product._id}`)}
+            className="p-2 bg-white rounded-xl shadow-[4px_4px_8px_#e8eae8,-4px_-4px_8px_#ffffff] hover:bg-blue-50 hover:text-blue-500 transition-all"
+          >
+            <FiEye className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <h3 className="font-semibold text-gray-800 line-clamp-2 group-hover:text-[#2ecc71] transition-colors">
+          {product.name}
+        </h3>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-[#2ecc71] font-bold text-lg">₹{product.price.toLocaleString()}</span>
+          <div className="flex items-center gap-1">
+            <FiStar className="w-4 h-4 text-yellow-400 fill-current" />
+            <span className="text-sm text-gray-600">4.5</span>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => onAddToCart(product._id)}
+          className="w-full py-3 bg-[#2ecc71] text-white rounded-xl font-medium shadow-[0_4px_12px_rgba(46,204,113,0.2)] hover:shadow-[0_6px_16px_rgba(46,204,113,0.3)] hover:bg-[#27ae60] transition-all flex items-center justify-center gap-2"
+        >
+          <FiShoppingCart className="w-4 h-4" />
+          Add to Cart
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
 const Home = () => {
+  // Simplified state management for remaining sections
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
   const [topRated, setTopRated] = useState([]);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
   
+  // All useRef hooks and navigate
   const navigate = useNavigate();
-  const carouselRef = useRef(null);
   const containerRef = useRef(null);
   
-  // Mouse tracking for scroll animations
-  const { scrollYProgress } = useScroll({ target: containerRef });
+  // All motion values and framer-motion hooks declared at top level
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  
-  // Smooth spring animations for mouse movement
   const springX = useSpring(mouseX, { stiffness: 300, damping: 30 });
   const springY = useSpring(mouseY, { stiffness: 300, damping: 30 });
   
-  // Background animations based on scroll
+  // Scroll animations - declared at top level
+  const { scrollYProgress } = useScroll({ target: containerRef });
   const backgroundY = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
   const backgroundRotate = useTransform(scrollYProgress, [0, 1], [0, 360]);
   const backgroundScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.2, 1]);
   
+  // Pre-declare all useTransform hooks to avoid conditional calls
+  const heroY = useTransform(scrollYProgress, [0, 0.2], [0, -50]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 1.1]);
+  const heroRotate = useTransform(scrollYProgress, [0, 0.2], [0, 2]);
+  const statsY = useTransform(scrollYProgress, [0.1, 0.3], [0, -30]);
+  const newArrivalsY = useTransform(scrollYProgress, [0.4, 0.6], [0, -15]);
+  const newArrivalsScale = useTransform(scrollYProgress, [0.4, 0.6], [1, 1.02]);
+  const topRatedY = useTransform(scrollYProgress, [0.6, 0.8], [0, -10]);
+  const ctaY = useTransform(scrollYProgress, [0.8, 1], [0, -5]);
+  const ctaScale = useTransform(scrollYProgress, [0.8, 1], [1, 1.05]);
+  
+  // Additional transforms for animations
+  const springXTransform1 = useTransform(springX, [0, 1], [-100, 100]);
+  const springYTransform1 = useTransform(springY, [0, 1], [-100, 100]);
+  const springXTransform2 = useTransform(springX, [0, 1], [50, -50]);
+  const springYTransform2 = useTransform(springY, [0, 1], [50, -50]);
+  const scaleTransform = useTransform(scrollYProgress, [0, 1], [0.8, 1.2]);
+  const springXPercent = useTransform(springX, [0, 1], [0, 100]);
+  const springYPercent = useTransform(springY, [0, 1], [0, 100]);
   // Handle mouse movement for interactive animations
   const handleMouseMove = (e) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -41,50 +135,35 @@ const Home = () => {
       mouseX.set(x);
       mouseY.set(y);
     }
-  };  useEffect(() => {
+  };
+
+  // All useEffect hooks
+  useEffect(() => {
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
+    
     fetchProducts();
+    
     if (token) {
       fetchWishlist();
     }
   }, []);
 
-  // Auto-scroll for featured products carousel
-  useEffect(() => {
-    if (featuredProducts.length > 0) {
-      const interval = setInterval(() => {
-        setCurrentSlide((prev) => {
-          const nextSlide = (prev + 1) % Math.min(5, featuredProducts.length);
-          
-          // Smooth scroll to the next product
-          if (carouselRef.current) {
-            const cardWidth = 300 + 24; // card width + gap
-            carouselRef.current.scrollTo({
-              left: nextSlide * cardWidth,
-              behavior: 'smooth'
-            });
-          }
-          
-          return nextSlide;
-        });
-      }, 4000); // Auto-scroll every 4 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [featuredProducts]);
-
   const fetchProducts = async () => {
     try {
       const response = await fetch('https://coms-again.onrender.com/api/products');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       
-      if (data.products) {
+      if (data.products && data.products.length > 0) {
         setProducts(data.products);
         
-        // Simulate categories by sorting and filtering
+        // Create new arrivals and top rated from the same data
         const shuffled = [...data.products].sort(() => 0.5 - Math.random());
-        setFeaturedProducts(shuffled.slice(0, 6));
         setNewArrivals(shuffled.slice(6, 12));
         setTopRated(shuffled.slice(12, 18));
       }
@@ -105,7 +184,9 @@ const Home = () => {
         headers: {
           'Authorization': `Bearer ${token}`
         }
-      });      if (response.ok) {
+      });
+
+      if (response.ok) {
         const data = await response.json();
         setWishlistItems(data.wishlist || []);
       }
@@ -117,6 +198,7 @@ const Home = () => {
   const isInWishlist = (productId) => {
     return wishlistItems.some(item => item._id === productId);
   };
+
   const addToWishlist = async (productId) => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -141,7 +223,6 @@ const Home = () => {
 
       if (response.ok) {
         toast.success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist!');
-        // Refresh wishlist
         fetchWishlist();
       } else {
         throw new Error('Failed to update wishlist');
@@ -177,77 +258,6 @@ const Home = () => {
       toast.error('Error adding to cart');
     }
   };
-  const ProductCard = ({ product, index }) => {
-    const productIsWishlisted = isInWishlist(product._id);
-    
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.1 }}
-        className="bg-white rounded-3xl p-6 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] hover:shadow-[12px_12px_24px_#e8eae8,-12px_-12px_24px_#ffffff] transition-all duration-300 group relative"
-      >
-        {/* Wishlist indicator - always visible if wishlisted */}
-        {productIsWishlisted && (
-          <div className="absolute top-3 left-3 z-10">
-            <div className="p-2 bg-red-500 text-white rounded-xl shadow-lg">
-              <FiHeart className="w-4 h-4 fill-current" />
-            </div>
-          </div>
-        )}
-        
-        <div className="relative mb-4">
-          <div className="w-full h-48 bg-[#f8faf8] rounded-2xl shadow-inner overflow-hidden">
-            <img
-              src={product.images?.[0] || product.image || '/placeholder.png'}
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          </div>
-          <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => addToWishlist(product._id)}
-              className={`p-2 rounded-xl shadow-[4px_4px_8px_#e8eae8,-4px_-4px_8px_#ffffff] transition-all ${
-                productIsWishlisted 
-                  ? 'bg-red-500 text-white hover:bg-red-600' 
-                  : 'bg-white hover:bg-red-50 hover:text-red-500'
-              }`}
-            >
-              <FiHeart className={`w-4 h-4 ${productIsWishlisted ? 'fill-current' : ''}`} />
-            </button>
-            <button
-              onClick={() => navigate(`/products/${product._id}`)}
-              className="p-2 bg-white rounded-xl shadow-[4px_4px_8px_#e8eae8,-4px_-4px_8px_#ffffff] hover:bg-blue-50 hover:text-blue-500 transition-all"
-            >
-              <FiEye className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-800 line-clamp-2 group-hover:text-[#2ecc71] transition-colors">
-            {product.name}
-          </h3>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-[#2ecc71] font-bold text-lg">₹{product.price.toLocaleString()}</span>
-            <div className="flex items-center gap-1">
-              <FiStar className="w-4 h-4 text-yellow-400 fill-current" />
-              <span className="text-sm text-gray-600">4.5</span>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => addToCart(product._id)}
-            className="w-full py-3 bg-[#2ecc71] text-white rounded-xl font-medium shadow-[0_4px_12px_rgba(46,204,113,0.2)] hover:shadow-[0_6px_16px_rgba(46,204,113,0.3)] hover:bg-[#27ae60] transition-all flex items-center justify-center gap-2"
-          >
-            <FiShoppingCart className="w-4 h-4" />
-            Add to Cart
-          </button>
-        </div>
-      </motion.div>
-    );
-  };
 
   const SectionHeader = ({ title, subtitle, icon: Icon }) => (
     <motion.div
@@ -262,8 +272,7 @@ const Home = () => {
       </div>
       <p className="text-gray-600 max-w-2xl mx-auto">{subtitle}</p>
     </motion.div>
-  );
-  return (
+  );  return (
     <motion.div 
       ref={containerRef}
       className="min-h-screen bg-[#f8faf8] relative overflow-hidden"
@@ -275,8 +284,8 @@ const Home = () => {
         <motion.div
           className="absolute w-96 h-96 rounded-full bg-gradient-to-r from-[#2ecc71]/10 to-[#27ae60]/5 blur-3xl"
           style={{
-            x: useTransform(springX, [0, 1], [-100, 100]),
-            y: useTransform(springY, [0, 1], [-100, 100]),
+            x: springXTransform1,
+            y: springYTransform1,
             scale: backgroundScale,
             rotate: backgroundRotate,
           }}
@@ -294,8 +303,8 @@ const Home = () => {
         <motion.div
           className="absolute right-0 top-1/4 w-64 h-64 rounded-full bg-gradient-to-l from-[#27ae60]/10 to-[#2ecc71]/5 blur-2xl"
           style={{
-            x: useTransform(springX, [0, 1], [50, -50]),
-            y: useTransform(springY, [0, 1], [50, -50]),
+            x: springXTransform2,
+            y: springYTransform2,
           }}
           animate={{
             scale: [1, 1.2, 1],
@@ -312,7 +321,7 @@ const Home = () => {
           className="absolute bottom-1/4 left-1/4 w-48 h-48 rounded-full bg-gradient-to-br from-[#2ecc71]/15 to-transparent blur-xl"
           style={{
             y: backgroundY,
-            scale: useTransform(scrollYProgress, [0, 1], [0.8, 1.2]),
+            scale: scaleTransform,
           }}
           animate={{
             x: [0, -50, 0],
@@ -353,60 +362,292 @@ const Home = () => {
             }}
           />
         ))}
-      </div>      {/* Hero Section */}
+      </div>
+
+      {/* Dynamic Hero Banner Section Container */}
       <motion.section 
-        className="relative overflow-hidden py-20 px-4"
-        style={{
-          y: useTransform(scrollYProgress, [0, 0.2], [0, -50]),
-        }}
+        className="relative min-h-screen flex items-center justify-center overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1 }}
       >
-        <motion.div 
-          className="absolute inset-0 bg-gradient-to-br from-[#2ecc71]/5 to-[#27ae60]/5"
-          style={{
-            scale: useTransform(scrollYProgress, [0, 0.2], [1, 1.1]),
-            rotate: useTransform(scrollYProgress, [0, 0.2], [0, 2]),
-          }}
-        />
-        
-        {/* Interactive mouse follower */}
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `radial-gradient(600px circle at ${useTransform(springX, [0, 1], [0, 100])}% ${useTransform(springY, [0, 1], [0, 100])}%, rgba(46, 204, 113, 0.1), transparent 40%)`,
-          }}
-        />
-        
-        <div className="max-w-7xl mx-auto relative">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center"
+        {/* Hero Section Background Elements */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#f8faf8] via-white to-[#f0f4f0]">
+          {/* Decorative geometric patterns */}
+          <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-[#2ecc71]/10 to-transparent rounded-full blur-xl"></div>
+          <div className="absolute top-1/4 right-20 w-24 h-24 bg-gradient-to-bl from-[#27ae60]/15 to-transparent rounded-full blur-lg"></div>
+          <div className="absolute bottom-1/3 left-1/4 w-40 h-40 bg-gradient-to-tr from-[#2ecc71]/8 to-transparent rounded-full blur-2xl"></div>
+          
+          {/* Floating coins animation */}
+          {[...Array(8)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-6 h-6 bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-full shadow-lg"
+              style={{
+                left: `${15 + Math.random() * 70}%`,
+                top: `${20 + Math.random() * 60}%`,
+              }}
+              animate={{
+                y: [0, -20, 0],
+                rotate: [0, 360],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+                ease: "easeInOut"
+              }}
+            >
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-white/30 to-transparent"></div>
+            </motion.div>
+          ))}
+          
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 opacity-5" style={{
+            backgroundImage: `radial-gradient(circle, #2ecc71 1px, transparent 1px)`,
+            backgroundSize: '50px 50px'
+          }}></div>
+        </div>
+
+        {/* Clean Welcome Section Container - No special styling */}
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-4">
+          
+          {/* The actual DynamicHeroSection component - TEMPORARILY HIDDEN */}
+          {/* <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="relative overflow-hidden rounded-[3rem]"
           >
-            <h1 className="text-5xl md:text-7xl font-bold text-gray-800 mb-6">
-              Welcome to <span className="text-[#2ecc71]">EcoShop</span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Discover amazing products with unbeatable quality and prices. Your shopping journey starts here.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/products')}
-                className="px-8 py-4 bg-[#2ecc71] text-white rounded-2xl font-semibold shadow-[0_8px_24px_rgba(46,204,113,0.2)] hover:shadow-[0_12px_32px_rgba(46,204,113,0.3)] transition-all flex items-center justify-center gap-2"
+            <DynamicHeroSection />
+          </motion.div> */}
+
+          {/* BEAUTIFUL WELCOME SECTION - Clean Container */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="relative overflow-hidden p-8 md:p-12 lg:p-16"
+          >
+            {/* Animated Background Pattern */}
+            <div className="absolute inset-0 overflow-hidden">
+              {/* Floating geometric shapes */}
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute"
+                  style={{
+                    left: `${20 + Math.random() * 60}%`,
+                    top: `${20 + Math.random() * 60}%`,
+                  }}
+                  animate={{
+                    y: [0, -30, 0],
+                    rotate: [0, 360],
+                    scale: [1, 1.2, 1],
+                  }}
+                  transition={{
+                    duration: 4 + Math.random() * 3,
+                    repeat: Infinity,
+                    delay: Math.random() * 2,
+                    ease: "easeInOut"
+                  }}
+                >
+                  <div className={`w-4 h-4 ${i % 2 === 0 ? 'bg-[#2ecc71]/20' : 'bg-[#27ae60]/15'} rounded-full blur-sm`}></div>
+                </motion.div>
+              ))}
+              
+              {/* Gradient waves */}
+              <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-[#2ecc71]/5 to-transparent rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-[#27ae60]/5 to-transparent rounded-full blur-3xl"></div>
+            </div>
+
+            {/* Main Content */}
+            <div className="relative z-10 text-center">
+              {/* Logo/Brand Icon */}
+              <motion.div
+                initial={{ opacity: 0, y: -30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+                className="mb-8"
               >
-                <FiShoppingBag className="w-5 h-5" />
-                Shop Now
-                <FiArrowRight className="w-5 h-5" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 bg-white text-gray-700 rounded-2xl font-semibold shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] hover:shadow-[12px_12px_24px_#e8eae8,-12px_-12px_24px_#ffffff] transition-all"
+                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-3xl shadow-[8px_8px_16px_rgba(46,204,113,0.2)] flex items-center justify-center mb-4">
+                  <FiShoppingBag className="w-10 h-10 text-white" />
+                </div>
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 5, -5, 0],
+                    scale: [1, 1.05, 1]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#2ecc71] to-[#27ae60] bg-clip-text text-transparent"
+                >
+                  Indiraa1
+                </motion.div>
+              </motion.div>
+
+              {/* Welcome Text */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.7 }}
+                className="mb-8"
               >
-                Learn More
-              </motion.button>            </div>
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-800 mb-4 leading-tight">
+                  Welcome to{' '}
+                  <motion.span
+                    animate={{ 
+                      backgroundPosition: ['0%', '100%', '0%'],
+                    }}
+                    transition={{ 
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="bg-gradient-to-r from-[#2ecc71] via-[#27ae60] to-[#2ecc71] bg-300% bg-clip-text text-transparent"
+                    style={{ backgroundSize: '300% 100%' }}
+                  >
+                    Excellence
+                  </motion.span>
+                </h1>
+                
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 1, delay: 1 }}
+                  className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
+                >
+                  Discover premium quality products at unbeatable prices. Your journey to 
+                  exceptional shopping experience starts here.
+                </motion.p>
+              </motion.div>
+
+              {/* Features Grid */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.9 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"
+              >
+                {[
+                  { icon: FiShield, title: 'Premium Quality', desc: 'Only the finest products' },
+                  { icon: FiTruck, title: 'Fast Delivery', desc: 'Quick & reliable shipping' },
+                  { icon: FiHeart, title: 'Customer Love', desc: '99% satisfaction rate' }
+                ].map((feature, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.1 + index * 0.1 }}
+                    whileHover={{ 
+                      scale: 1.05,
+                      y: -5
+                    }}
+                    className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-[4px_4px_12px_rgba(46,204,113,0.1)] border border-white/50"
+                  >
+                    <feature.icon className="w-8 h-8 text-[#2ecc71] mx-auto mb-3" />
+                    <h3 className="font-semibold text-gray-800 mb-1">{feature.title}</h3>
+                    <p className="text-sm text-gray-600">{feature.desc}</p>
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              {/* Call to Action Buttons */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 1.3 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+              >
+                <motion.button
+                  onClick={() => navigate('/products')}
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: '0 12px 32px rgba(46,204,113,0.3)'
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white rounded-2xl font-semibold shadow-[0_8px_24px_rgba(46,204,113,0.2)] transition-all inline-flex items-center gap-3 group"
+                >
+                  <FiShoppingBag className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                  Start Shopping
+                  <motion.div
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <FiArrowRight className="w-5 h-5" />
+                  </motion.div>
+                </motion.button>
+
+                <motion.button
+                  onClick={() => navigate('/products')}
+                  whileHover={{ 
+                    scale: 1.05,
+                    backgroundColor: 'rgba(46,204,113,0.1)'
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 bg-white/80 backdrop-blur-sm text-[#2ecc71] rounded-2xl font-semibold border-2 border-[#2ecc71]/20 hover:border-[#2ecc71]/40 transition-all inline-flex items-center gap-3 group"
+                >
+                  <FiEye className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  Explore Deals
+                </motion.button>
+              </motion.div>
+
+              {/* Floating Action Hint */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 2 }}
+                className="mt-12"
+              >
+                <motion.div
+                  animate={{ 
+                    y: [0, -10, 0],
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="inline-flex items-center gap-2 text-sm text-gray-500 bg-white/40 backdrop-blur-sm px-4 py-2 rounded-full border border-white/50"
+                >
+                  <div className="w-2 h-2 bg-[#2ecc71] rounded-full animate-pulse"></div>
+                  Scroll down to discover more
+                </motion.div>
+              </motion.div>
+            </div>
+
+            {/* Decorative Corner Elements */}
+            <div className="absolute top-4 left-4 w-16 h-16 bg-gradient-to-br from-[#2ecc71]/10 to-transparent rounded-full blur-xl"></div>
+            <div className="absolute bottom-4 right-4 w-20 h-20 bg-gradient-to-tl from-[#27ae60]/10 to-transparent rounded-full blur-xl"></div>
+          </motion.div>
+
+          {/* Quality indicators footer */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="text-center mt-6 sm:mt-8"
+          >
+            <div className="flex items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-600 flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-[#2ecc71] rounded-full shadow-[2px_2px_4px_rgba(46,204,113,0.3)]"></div>
+                <span className="font-medium">Premium Quality</span>
+              </div>
+              <div className="w-px h-4 bg-gray-300 rounded-full hidden sm:block"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-[#27ae60] rounded-full shadow-[2px_2px_4px_rgba(39,174,96,0.3)]"></div>
+                <span className="font-medium">Fast Delivery</span>
+              </div>
+              <div className="w-px h-4 bg-gray-300 rounded-full hidden sm:block"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-[#2ecc71] rounded-full shadow-[2px_2px_4px_rgba(46,204,113,0.3)]"></div>
+                <span className="font-medium">Best Prices</span>
+              </div>
+            </div>
           </motion.div>
         </div>
       </motion.section>
@@ -415,14 +656,15 @@ const Home = () => {
       <motion.section 
         className="py-16 px-4"
         style={{
-          y: useTransform(scrollYProgress, [0.1, 0.3], [0, -30]),
+          y: statsY,
         }}
-      >        <div className="max-w-7xl mx-auto">
+      >
+        <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
             {[
               { icon: FiUsers, number: '10K+', label: 'Happy Customers' },
               { icon: FiShoppingBag, number: '50K+', label: 'Products Sold' },
-              { icon: FiAward, number: '99%', label: 'Satisfaction Rate' },
+              { icon: FiShield, number: '99%', label: 'Satisfaction Rate' },
               { icon: FiTruck, number: '24/7', label: 'Fast Delivery' }
             ].map((stat, index) => (
               <motion.div
@@ -440,282 +682,20 @@ const Home = () => {
             ))}
           </div>
         </div>
-      </motion.section>      {/* Featured Products */}
-      <motion.section 
-        className="py-16 px-4"
-        style={{
-          y: useTransform(scrollYProgress, [0.2, 0.4], [0, -20]),
-        }}
-      >
-        <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            title="Featured Products"
-            subtitle="Handpicked products that our customers love the most"
-            icon={FiStar}
-          />
-          
-          {loading ? (
-            <div className="relative overflow-hidden">
-              <div className="flex gap-6 overflow-x-auto scrollbar-hide pb-4">
-                {[...Array(5)].map((_, i) => (
-                  <motion.div 
-                    key={i} 
-                    initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1, duration: 0.5 }}
-                    className="min-w-[300px] bg-white rounded-3xl p-6 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] animate-pulse"
-                  >
-                    <div className="w-full h-48 bg-[#f8faf8] rounded-2xl mb-4 shadow-inner"></div>
-                    <div className="space-y-3">
-                      <div className="h-4 bg-[#f8faf8] rounded-xl w-3/4 shadow-inner"></div>
-                      <div className="h-4 bg-[#f8faf8] rounded-xl w-1/2 shadow-inner"></div>
-                      <div className="h-10 bg-[#f8faf8] rounded-xl shadow-inner"></div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          ) : featuredProducts.length > 0 ? (
-            <div className="relative">              {/* Carousel Container */}
-              <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#f8faf8]/50 to-white/30 p-6 shadow-[inset_8px_8px_16px_#e8eae8,inset_-8px_-8px_16px_#ffffff] relative">
-                {/* Auto-scroll indicator */}
-                <div className="absolute top-2 right-2 z-10">
-                  <div className="flex items-center gap-2 px-3 py-1 bg-white/80 backdrop-blur-sm rounded-full text-xs text-gray-600">
-                    <motion.div
-                      className="w-2 h-2 bg-[#2ecc71] rounded-full"
-                      animate={{ scale: [1, 1.2, 1], opacity: [1, 0.5, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                    Auto-scroll
-                  </div>
-                </div>
-                
-                <motion.div 
-                  ref={carouselRef}
-                  className="flex gap-6 overflow-x-auto scrollbar-hide pb-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6 }}
-                  style={{
-                    scrollSnapType: 'x mandatory',
-                    scrollBehavior: 'smooth'
-                  }}
-                  onMouseEnter={() => {
-                    // Pause auto-scroll on hover
-                    if (carouselRef.current) {
-                      carouselRef.current.style.scrollBehavior = 'auto';
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    // Resume auto-scroll when not hovering
-                    if (carouselRef.current) {
-                      carouselRef.current.style.scrollBehavior = 'smooth';
-                    }
-                  }}
-                >
-                  {featuredProducts.slice(0, 5).map((product, index) => (
-                    <motion.div
-                      key={product._id}
-                      initial={{ opacity: 0, x: 100, scale: 0.9 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      transition={{ 
-                        delay: index * 0.15, 
-                        duration: 0.7,
-                        type: "spring",
-                        stiffness: 100,
-                        damping: 15
-                      }}
-                      whileHover={{ 
-                        scale: 1.05, 
-                        y: -10,
-                        transition: { duration: 0.3, ease: "easeOut" }
-                      }}
-                      className="min-w-[300px] bg-white rounded-3xl p-6 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] hover:shadow-[12px_12px_24px_#e8eae8,-12px_-12px_24px_#ffffff] transition-all duration-500 group relative flex-shrink-0"
-                      style={{ scrollSnapAlign: 'center' }}
-                    >
-                      {/* Wishlist indicator - always visible if wishlisted */}
-                      {isInWishlist(product._id) && (
-                        <motion.div 
-                          initial={{ scale: 0, rotate: -180 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ delay: index * 0.15 + 0.3, duration: 0.5 }}
-                          className="absolute top-3 left-3 z-10"
-                        >
-                          <div className="p-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl shadow-lg">
-                            <FiHeart className="w-4 h-4 fill-current" />
-                          </div>
-                        </motion.div>
-                      )}
-                      
-                      <div className="relative mb-4">
-                        <div className="w-full h-48 bg-gradient-to-br from-[#f8faf8] to-[#eef2ee] rounded-2xl shadow-inner overflow-hidden relative">
-                          <motion.img
-                            src={product.images?.[0] || product.image || '/placeholder.png'}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            whileHover={{ scale: 1.1 }}
-                            transition={{ duration: 0.6, ease: "easeInOut" }}
-                          />
-                          
-                          {/* Gradient overlay for elegance */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        </div>
-                        
-                        {/* Action buttons with smooth reveal */}
-                        <motion.div 
-                          className="absolute top-3 right-3 flex gap-2"
-                          initial={{ opacity: 0, scale: 0.8, y: -10 }}
-                          whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                          transition={{ delay: index * 0.15 + 0.5, duration: 0.4 }}
-                        >
-                          <motion.button
-                            onClick={() => addToWishlist(product._id)}
-                            className={`p-2 rounded-xl backdrop-blur-sm transition-all duration-300 ${
-                              isInWishlist(product._id) 
-                                ? 'bg-red-500 text-white shadow-[0_4px_12px_rgba(239,68,68,0.4)]' 
-                                : 'bg-white/90 hover:bg-red-50 hover:text-red-500 shadow-[4px_4px_8px_rgba(232,234,232,0.6),-4px_-4px_8px_rgba(255,255,255,0.8)]'
-                            }`}
-                            whileHover={{ scale: 1.1, rotate: 10 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <FiHeart className={`w-4 h-4 ${isInWishlist(product._id) ? 'fill-current' : ''}`} />
-                          </motion.button>
-                          
-                          <motion.button
-                            onClick={() => navigate(`/products/${product._id}`)}
-                            className="p-2 bg-white/90 rounded-xl backdrop-blur-sm hover:bg-blue-50 hover:text-blue-500 transition-all duration-300 shadow-[4px_4px_8px_rgba(232,234,232,0.6),-4px_-4px_8px_rgba(255,255,255,0.8)]"
-                            whileHover={{ scale: 1.1, rotate: -10 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <FiEye className="w-4 h-4" />
-                          </motion.button>
-                        </motion.div>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <motion.h3 
-                          className="font-semibold text-gray-800 line-clamp-2 group-hover:text-[#2ecc71] transition-colors duration-300"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.15 + 0.6, duration: 0.4 }}
-                        >
-                          {product.name}
-                        </motion.h3>
-                        
-                        <motion.div 
-                          className="flex items-center justify-between"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.15 + 0.7, duration: 0.4 }}
-                        >
-                          <span className="text-[#2ecc71] font-bold text-lg bg-gradient-to-r from-[#2ecc71] to-[#27ae60] bg-clip-text text-transparent">
-                            ₹{product.price.toLocaleString()}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <FiStar className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm text-gray-600">4.5</span>
-                          </div>
-                        </motion.div>
-                        
-                        <motion.button
-                          onClick={() => addToCart(product._id)}
-                          className="w-full py-3 bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white rounded-xl font-medium shadow-[0_4px_12px_rgba(46,204,113,0.3)] hover:shadow-[0_8px_20px_rgba(46,204,113,0.4)] hover:from-[#27ae60] hover:to-[#229954] transition-all duration-300 flex items-center justify-center gap-2 group/btn"
-                          initial={{ opacity: 0, y: 15 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.15 + 0.8, duration: 0.4 }}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <motion.div
-                            className="flex items-center gap-2"
-                            whileHover={{ x: 2 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <FiShoppingCart className="w-4 h-4 group-hover/btn:rotate-12 transition-transform duration-300" />
-                            Add to Cart
-                          </motion.div>
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </motion.div>
-                  {/* Scroll indicators */}
-                <motion.div 
-                  className="flex justify-center mt-6 gap-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1, duration: 0.5 }}
-                >
-                  {featuredProducts.slice(0, 5).map((_, index) => (
-                    <motion.button
-                      key={index}
-                      onClick={() => {
-                        setCurrentSlide(index);
-                        if (carouselRef.current) {
-                          const cardWidth = 300 + 24;
-                          carouselRef.current.scrollTo({
-                            left: index * cardWidth,
-                            behavior: 'smooth'
-                          });
-                        }
-                      }}
-                      className={`relative overflow-hidden rounded-full transition-all duration-300 ${
-                        index === currentSlide 
-                          ? 'w-8 h-2 bg-[#2ecc71]' 
-                          : 'w-2 h-2 bg-[#2ecc71]/30 hover:bg-[#2ecc71]/50'
-                      }`}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 1 + index * 0.1, duration: 0.3 }}
-                      whileHover={{ scale: 1.2 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      {index === currentSlide && (
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-[#2ecc71] to-[#27ae60]"
-                          layoutId="activeIndicator"
-                          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        />
-                      )}
-                    </motion.button>
-                  ))}
-                </motion.div>
-              </div>
-              
-              {/* Subtle scroll hint */}
-              <motion.div
-                className="text-center mt-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.5, duration: 0.5 }}
-              >
-                <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
-                  <FiArrowRight className="w-4 h-4" />
-                  Scroll horizontally to see more
-                  <FiArrowRight className="w-4 h-4" />
-                </p>
-              </motion.div>
-            </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="text-center py-12"
-            >
-              <div className="bg-white rounded-3xl p-8 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] max-w-md mx-auto">
-                <FiShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Products Found</h3>
-                <p className="text-gray-500">We're working on adding amazing products for you!</p>              </div>
-            </motion.div>
-          )}
-        </div>
-      </motion.section>{/* New Arrivals */}
+      </motion.section>
+
+      {/* Combo Deals Component */}
+      <ComboDeals />
+
+      {/* Featured Products Component */}
+      <FeaturedProducts />
+
+      {/* New Arrivals */}
       <motion.section 
         className="py-16 px-4 bg-gradient-to-br from-[#f8faf8] to-white"
         style={{
-          y: useTransform(scrollYProgress, [0.4, 0.6], [0, -15]),
-          scale: useTransform(scrollYProgress, [0.4, 0.6], [1, 1.02]),
+          y: newArrivalsY,
+          scale: newArrivalsScale,
         }}
       >
         <div className="max-w-7xl mx-auto">
@@ -724,10 +704,18 @@ const Home = () => {
             subtitle="Fresh products just added to our collection"
             icon={FiTrendingUp}
           />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {newArrivals.length > 0 ? (
               newArrivals.map((product, index) => (
-                <ProductCard key={product._id} product={product} index={index} />
+                <ProductCard 
+                  key={product._id} 
+                  product={product} 
+                  index={index}
+                  onAddToWishlist={addToWishlist}
+                  onAddToCart={addToCart}
+                  isInWishlist={isInWishlist}
+                  navigate={navigate}
+                />
               ))
             ) : (
               <div className="col-span-full text-center py-8">
@@ -735,7 +723,8 @@ const Home = () => {
                   <FiTrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">New arrivals coming soon!</p>
                 </div>
-              </div>            )}
+              </div>
+            )}
           </div>
         </div>
       </motion.section>
@@ -744,28 +733,37 @@ const Home = () => {
       <motion.section 
         className="py-16 px-4"
         style={{
-          y: useTransform(scrollYProgress, [0.6, 0.8], [0, -10]),
+          y: topRatedY,
         }}
       >
         <div className="max-w-7xl mx-auto">
           <SectionHeader
             title="Top Rated"
             subtitle="Products with the highest customer ratings"
-            icon={FiAward}
+            icon={FiShield}
           />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {topRated.length > 0 ? (
               topRated.map((product, index) => (
-                <ProductCard key={product._id} product={product} index={index} />
+                <ProductCard 
+                  key={product._id} 
+                  product={product} 
+                  index={index}
+                  onAddToWishlist={addToWishlist}
+                  onAddToCart={addToCart}
+                  isInWishlist={isInWishlist}
+                  navigate={navigate}
+                />
               ))
             ) : (
               <div className="col-span-full text-center py-8">
                 <div className="bg-white rounded-3xl p-6 shadow-[8px_8px_16px_#e8eae8,-8px_-8px_16px_#ffffff] max-w-sm mx-auto">
-                  <FiAward className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <FiShield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">Top rated products coming soon!</p>
                 </div>
               </div>
-            )}          </div>
+            )}
+          </div>
         </div>
       </motion.section>
 
@@ -773,8 +771,8 @@ const Home = () => {
       <motion.section 
         className="py-20 px-4"
         style={{
-          y: useTransform(scrollYProgress, [0.8, 1], [0, -5]),
-          scale: useTransform(scrollYProgress, [0.8, 1], [1, 1.05]),
+          y: ctaY,
+          scale: ctaScale,
         }}
       >
         <div className="max-w-4xl mx-auto">
@@ -797,10 +795,12 @@ const Home = () => {
               className="px-12 py-4 bg-[#2ecc71] text-white rounded-2xl font-semibold shadow-[0_8px_24px_rgba(46,204,113,0.2)] hover:shadow-[0_12px_32px_rgba(46,204,113,0.3)] transition-all inline-flex items-center gap-3"
             >
               <FiShoppingBag className="w-5 h-5" />
-              Explore All Products              <FiArrowRight className="w-5 h-5" />
+              Explore All Products
+              <FiArrowRight className="w-5 h-5" />
             </motion.button>
           </motion.div>
-        </div>      </motion.section>
+        </div>
+      </motion.section>
     </motion.div>
   );
 };

@@ -6,7 +6,9 @@ import {
   ProductsIcon, 
   OrdersIcon, 
   UsersIcon, 
-  CouponsIcon 
+  CouponsIcon,
+  PackageIcon,
+  BannersIcon
 } from './AdminIcons';
 
 const AdminSidebar = () => {
@@ -41,7 +43,6 @@ const AdminSidebar = () => {
 
     updateSidebarWidth();
   }, [isCollapsed, isMobile]); // Update when either state changes
-
   const menuItems = [
     {
       path: '/admin',
@@ -52,6 +53,16 @@ const AdminSidebar = () => {
       path: '/admin/products',
       name: 'Products',
       icon: ProductsIcon
+    },
+    {
+      path: '/admin/combo-packs',
+      name: 'Combo Packs',
+      icon: PackageIcon
+    },
+    {
+      path: '/admin/banners',
+      name: 'Banners',
+      icon: BannersIcon
     },
     {
       path: '/admin/orders',
@@ -182,75 +193,80 @@ const AdminSidebar = () => {
             </div>
           </div>
         </div>
-      </aside>      <style jsx>{`
-        :global(:root) {
-          --sidebar-width: 256px;
-        }
-        
-        /* Z-index hierarchy: Arrow (50) > Sidebar (40) > Overlay (30) */
-        .sidebar-arrow {
-          z-index: 50;
-        }
-        
-        .scale-102 {
-          transform: scale(1.02);
-        }
-        .scale-105 {
-          transform: scale(1.05);
-        }
-        .scale-110 {
-          transform: scale(1.1);
-        }
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-        .animate-pulse {
-          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-          /* Ensure active indicator stays circular on all screen sizes */
-        .active-indicator {
-          width: 8px !important;
-          height: 8px !important;
-          min-width: 8px;
-          min-height: 8px;
-          max-width: 8px;
-          max-height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-          flex-grow: 0;
-          margin-left: auto;
-          margin-right: 12px;
-        }        /* Responsive behavior */
-        @media (max-width: 768px) {
-          .sidebar-arrow {
-            left: 1rem !important;
-            /* On mobile, arrow position is fixed */
+      </aside>
+      
+      {/* CSS Styles - Moving away from styled-jsx to regular CSS */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          :root {
+            --sidebar-width: 256px;
           }
           
-          /* Ensure indicator doesn't stretch on mobile */
-          .active-indicator {
-            width: 6px !important;
-            height: 6px !important;
-            min-width: 6px !important;
-            min-height: 6px !important;
-            max-width: 6px !important;
-            max-height: 6px !important;
-            margin-right: 8px;
-          }
-        }
-        
-        @media (min-width: 769px) {
-          /* On desktop/tablet, allow dynamic positioning */
+          /* Z-index hierarchy: Arrow (50) > Sidebar (40) > Overlay (30) */
           .sidebar-arrow {
-            transition: left 0.3s ease-in-out;
+            z-index: 50;
           }
-        }
-      `}</style>
+          
+          .scale-102 {
+            transform: scale(1.02);
+          }
+          .scale-105 {
+            transform: scale(1.05);
+          }
+          .scale-110 {
+            transform: scale(1.1);
+          }
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+          }
+          .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          }
+          
+          /* Ensure active indicator stays circular on all screen sizes */
+          .active-indicator {
+            width: 8px !important;
+            height: 8px !important;
+            min-width: 8px;
+            min-height: 8px;
+            max-width: 8px;
+            max-height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            flex-grow: 0;
+            margin-left: auto;
+            margin-right: 12px;
+          }
+          
+          /* Responsive behavior */
+          @media (max-width: 768px) {
+            .sidebar-arrow {
+              left: 1rem !important;
+            }
+            
+            .active-indicator {
+              width: 6px !important;
+              height: 6px !important;
+              min-width: 6px !important;
+              min-height: 6px !important;
+              max-width: 6px !important;
+              max-height: 6px !important;
+              margin-right: 8px;
+            }
+          }
+          
+          @media (min-width: 769px) {
+            .sidebar-arrow {
+              transition: left 0.3s ease-in-out;
+            }
+          }
+        `
+      }} />
     </>
   );
 };

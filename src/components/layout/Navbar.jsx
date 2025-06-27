@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiShoppingCart, FiHeart, FiUser, FiMenu, FiX, FiHome, FiGrid, FiLogOut, FiShoppingBag } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import NavbarWalletBalance from '../Wallet/NavbarWalletBalance';
 
 const Navbar = () => {
   const [user, setUser] = useState(null);
@@ -134,6 +135,9 @@ const Navbar = () => {
                   )}
                 </Link>
 
+                {/* Wallet Balance */}
+                <NavbarWalletBalance />
+
                 {/* Cart */}
                 <Link
                   to="/cart"
@@ -180,6 +184,14 @@ const Navbar = () => {
                         >
                           <FiUser className="w-4 h-4" />
                           Your Profile
+                        </Link>
+                        <Link
+                          to="/wallet"
+                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#f8faf8] transition-colors"
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <FiShoppingBag className="w-4 h-4" />
+                          Indira Coins Wallet
                         </Link>
                         <button
                           onClick={handleLogout}

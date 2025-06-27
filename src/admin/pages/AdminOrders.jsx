@@ -126,6 +126,7 @@ const AdminOrders = () => {
                       <th className="text-left p-6 font-semibold text-gray-700">Total</th>
                       <th className="text-left p-6 font-semibold text-gray-700">Status</th>
                       <th className="text-left p-6 font-semibold text-gray-700">Payment</th>
+                      <th className="text-left p-6 font-semibold text-gray-700">Delivery Slot</th>
                       <th className="text-left p-6 font-semibold text-gray-700">Date</th>
                       <th className="text-left p-6 font-semibold text-gray-700">Actions</th>
                     </tr>
@@ -191,6 +192,34 @@ const AdminOrders = () => {
                               {order.paymentStatus === 'Paid' && <PaidIcon className="w-4 h-4 mr-1" />}
                               {order.paymentStatus || 'Pending'}
                             </span>
+                          </button>
+                        </td>
+                        <td className="p-6">
+                          <button
+                            onClick={() => handleOrderClick(order._id)}
+                            className="text-left w-full hover:bg-gray-50/50 rounded-xl p-2 transition-colors"
+                          >
+                            <div className="space-y-1">
+                              {order.deliverySlot?.date ? (
+                                <>
+                                  <div className="text-sm font-medium text-blue-600">
+                                    📅 {new Date(order.deliverySlot.date).toLocaleDateString('en-IN', { 
+                                      day: 'numeric', 
+                                      month: 'short' 
+                                    })}
+                                  </div>
+                                  {order.deliverySlot.timeSlot && (
+                                    <div className="text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded-lg">
+                                      🕐 {order.deliverySlot.timeSlot.split(' - ')[0]}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-xs text-gray-400 italic">
+                                  No preference
+                                </div>
+                              )}
+                            </div>
                           </button>
                         </td>
                         <td className="p-6">

@@ -214,6 +214,21 @@ const Login = () => {
             </motion.button>
           </form>
 
+          {/* Forgot Password Link */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35, duration: 0.6 }}
+            className="mt-4 text-center"
+          >
+            <Link 
+              to="/forgot-password" 
+              className="text-[#2ecc71]/80 hover:text-[#2ecc71] text-sm transition-colors hover:underline decoration-2 underline-offset-2"
+            >
+              Forgot your password?
+            </Link>
+          </motion.div>
+
           {/* Register Link */}
           <motion.div
             initial={{ opacity: 0 }}

@@ -20,9 +20,11 @@ import {
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 import VariantPopup from '../components/VariantPopup';
+import ComboPackCard from '../components/ComboPackCard';
 
 const ProductList = () => {
  const [products, setProducts] = useState([]);
+  const [comboPacks, setComboPacks] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -154,28 +156,41 @@ useEffect(() => {
     let url = 'https://coms-again.onrender.com/api/products';
     if (categoryParam) url += `?category=${encodeURIComponent(categoryParam)}`;
 
-    setTimeout(() => {
-      fetch(url)
-        .then(res => res.json())
-        .then(data => {
-          const allProducts = data.products || [];
-          setProducts(allProducts);
-          setFiltered(allProducts);
-          const categories = [...new Set(allProducts.map(p => p.category))];
-          setCategoryOptions(categories);
+    // Fetch both products and combo packs
+    const fetchData = async () => {
+      try {
+        const [productsResponse, comboPacksResponse] = await Promise.all([
+          fetch(url),
+          fetch('https://coms-again.onrender.com/api/combo-packs/all')
+        ]);
 
-          const prices = allProducts.map(p => p.price);
-          const min = Math.min(...prices);
-          const max = Math.max(...prices);
-          setPriceRange([min, max]);
+        const productsData = await productsResponse.json();
+        const comboPacksData = await comboPacksResponse.json();
 
-          setLoading(false);
-        })
-        .catch(() => {
-          setError('Failed to load products');
-          setLoading(false);
-        });
-    }, 500);
+        const allProducts = productsData.products || [];
+        const allComboPacks = comboPacksData.success ? (comboPacksData.comboPacks || []) : [];
+
+        setProducts(allProducts);
+        setComboPacks(allComboPacks);
+        setFiltered(allProducts); // Initially show only products, combo packs will be shown separately
+
+        const categories = [...new Set(allProducts.map(p => p.category))];
+        setCategoryOptions(categories);
+
+        const prices = allProducts.map(p => p.price);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        setPriceRange([min, max]);
+
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to load products');
+        setLoading(false);
+      }
+    };
+
+    setTimeout(fetchData, 500);
 
     if (token) {
       fetchWishlistAndCart();
@@ -796,13 +811,23 @@ useEffect(() => {
                   Clear Filters
                 </motion.button>
               </motion.div>
-            ) : (
-              <motion.div 
+            ) : (              <motion.div 
                 className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }}
                 layout
-              >                {filtered.map((product, index) => {
+              >                {/* Combo Packs - Display above products */}
+                {comboPacks.map((comboPack, index) => (
+                  <ComboPackCard
+                    key={`combo-${comboPack._id}`}
+                    comboPack={comboPack}
+                    index={index}
+                    viewMode={viewMode}
+                  />
+                ))}
+
+                {/* Regular Products */}
+                {filtered.map((product, index) => {
                   const avgRating = product.reviews?.length
                     ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
                     : 0;
