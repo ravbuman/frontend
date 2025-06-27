@@ -19,7 +19,7 @@ const ComboPackList = () => {
   const fetchComboPacks = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://coms-again.onrender.com/api/combo-packs/all');
+      const response = await fetch('http://localhost:5001/api/combo-packs/all');
       const data = await response.json();
       
       if (data.success) {

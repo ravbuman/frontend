@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiDollarSign, FiInfo, FiLoader, FiCheckCircle, FiX, FiCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-/** Coin Redemption Widget **/
 
 const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount = null }) => {
   const [availableCoins, setAvailableCoins] = useState(0);
@@ -31,7 +30,7 @@ const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('https://coms-again.onrender.com/api/wallet/balance', {
+      const response = await fetch('http://localhost:5001/api/wallet/balance', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -54,7 +53,7 @@ const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount
   const getSuggestions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://coms-again.onrender.com/api/wallet/calculate-discount', {
+      const response = await fetch('http://localhost:5001/api/wallet/calculate-discount', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +77,7 @@ const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount
     setCalculating(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://coms-again.onrender.com/api/wallet/calculate-discount', {
+      const response = await fetch('http://localhost:5001/api/wallet/calculate-discount', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -358,4 +357,5 @@ const CoinRedemptionWidget = ({ orderValue, onDiscountApply, appliedCoinDiscount
     </motion.div>
   );
 };
+
 export default CoinRedemptionWidget;

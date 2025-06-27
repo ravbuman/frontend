@@ -19,7 +19,7 @@ const ReferralCodeInput = ({ onCodeChange, initialCode = '' }) => {
 
     setValidationStatus('validating');
     try {
-      const response = await fetch(`https://coms-again.onrender.com/api/referral/validate`, {
+      const response = await fetch(`http://localhost:5001/api/referral/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

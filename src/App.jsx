@@ -14,6 +14,7 @@ import ComboPackDetail from './pages/ComboPackDetail';
 import Cart from './pages/Cart';
 import Wishlist from './pages/Wishlist';
 import Checkout from './pages/Checkout';
+import CheckoutTest from './pages/CheckoutTest';
 import Profile from './pages/Profile';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
@@ -143,6 +144,7 @@ function App() {
                     <Route path="/cart" element={<Cart />} />
                     <Route path="/wishlist" element={<Wishlist />} />
                     <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/checkout-test" element={<CheckoutTest />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/orders" element={<Orders />} />
                     <Route path="/orders/:orderId" element={<OrderDetail />} />

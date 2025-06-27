@@ -56,7 +56,7 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('https://coms-again.onrender.com/api/products/', {
+      const response = await fetch('http://localhost:5001/api/products/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -114,7 +114,7 @@ const AdminProducts = () => {
 
       let response;
       if (editingProduct) {
-        response = await fetch(`https://coms-again.onrender.com/api/products/${editingProduct._id}`, {
+        response = await fetch(`http://localhost:5001/api/products/${editingProduct._id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -122,7 +122,7 @@ const AdminProducts = () => {
           body: formDataToSend
         });
       } else {
-        response = await fetch('https://coms-again.onrender.com/api/products/', {
+        response = await fetch('http://localhost:5001/api/products/', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -169,7 +169,7 @@ const AdminProducts = () => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`https://coms-again.onrender.com/api/products/${productId}`, {
+        const response = await fetch(`http://localhost:5001/api/products/${productId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,

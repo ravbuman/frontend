@@ -96,8 +96,8 @@ const ProductList = () => {
       if (!token) return;
 
       const [wishlistData, cartData] = await Promise.all([
-        apiCall('https://coms-again.onrender.com/api/products/wishlist/me'),
-        apiCall('https://coms-again.onrender.com/api/products/cart/me')      ]);
+        apiCall('http://localhost:5001/api/products/wishlist/me'),
+        apiCall('http://localhost:5001/api/products/cart/me')      ]);
 
       setWishlistItems(wishlistData.wishlist || []);
       setCart(cartData.cart || []);
@@ -153,7 +153,7 @@ useEffect(() => {
     setIsAuthenticated(!!token);
     
     setLoading(true);
-    let url = 'https://coms-again.onrender.com/api/products';
+    let url = 'http://localhost:5001/api/products';
     if (categoryParam) url += `?category=${encodeURIComponent(categoryParam)}`;
 
     // Fetch both products and combo packs
@@ -161,7 +161,7 @@ useEffect(() => {
       try {
         const [productsResponse, comboPacksResponse] = await Promise.all([
           fetch(url),
-          fetch('https://coms-again.onrender.com/api/combo-packs/all')
+          fetch('http://localhost:5001/api/combo-packs/all')
         ]);
 
         const productsData = await productsResponse.json();
@@ -252,14 +252,14 @@ useEffect(() => {
     setLoadingState(productId, 'wishlist', true);
     try {
       if (isInWishlist) {
-        await apiCall('https://coms-again.onrender.com/api/products/wishlist/remove', {
+        await apiCall('http://localhost:5001/api/products/wishlist/remove', {
           method: 'POST',
           body: JSON.stringify({ productId })
         });
         setWishlistItems(prev => prev.filter(item => item._id !== productId));
         showNotification('Removed from wishlist');
       } else {
-        await apiCall('https://coms-again.onrender.com/api/products/wishlist/add', {
+        await apiCall('http://localhost:5001/api/products/wishlist/add', {
           method: 'POST',
           body: JSON.stringify({ productId })
         });
@@ -309,7 +309,7 @@ useEffect(() => {
         requestBody.variantId = variantId;
       }
 
-      await apiCall('https://coms-again.onrender.com/api/products/cart/add', {
+      await apiCall('http://localhost:5001/api/products/cart/add', {
         method: 'POST',
         body: JSON.stringify(requestBody)
       });

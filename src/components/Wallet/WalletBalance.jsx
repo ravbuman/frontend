@@ -23,7 +23,7 @@ const WalletBalance = ({ compact = false }) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('https://coms-again.onrender.com/api/wallet/balance', {
+      const response = await fetch('http://localhost:5001/api/wallet/balance', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
